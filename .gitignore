@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+pip-log.txt
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Database
+*.db
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Certificados (¡NUNCA subir!)
+*.pem
+*.key
+*.p12
+*.pfx
+certs/
+certificados/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Docker
+docker-compose.override.yml
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.swp
+
+# Alembic
+alembic/versions/*.pyc
+
+# Backups
+*.bak
+*.backup
+
+# Documentación de AEAT (los XSD puedes decidir si los subes o no)
+# docs/*.pdf
+# docs/*.xsd

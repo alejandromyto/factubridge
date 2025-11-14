@@ -1,0 +1,8 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_GIT: "true"
+    command: sleep infinity # Override para que no arranque uvicorn inmediatamente
