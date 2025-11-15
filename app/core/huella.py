@@ -1,8 +1,10 @@
 """
 Generador de hash para VeriFactu según especificaciones AEAT
+
 Portado desde Java - mantiene la misma lógica exacta
 https://www.agenciatributaria.es/static_files/AEAT_Desarrolladores/EEDD/IVA/VERI-FACTU/Veri-Factu_especificaciones_huella_hash_registros.pdf
 """
+
 import hashlib
 import logging
 from datetime import datetime
@@ -65,6 +67,7 @@ def get_hash_verifactu(msg: str) -> str:
 def get_valor_campo(nombre: str, valor: Optional[str], separador: bool) -> str:
     """
     Formatea un campo para la cadena de hash
+
     Formato: nombre=valor& (con separador) o nombre=valor (sin separador)
 
     Args:
@@ -87,6 +90,7 @@ def get_valor_campo(nombre: str, valor: Optional[str], separador: bool) -> str:
 def format_date(date: datetime, pattern: str) -> str:
     """
     Formatea una fecha según el patrón especificado
+
     Para fechas con hora usa la zona horaria local con offset
 
     Args:
@@ -96,9 +100,6 @@ def format_date(date: datetime, pattern: str) -> str:
     Returns:
         Fecha formateada
     """
-    if date is None:
-        return ""
-
     # Para fechas simples (sin hora)
     if "HH:mm:ss" not in pattern:
         # dd-MM-yyyy
@@ -128,6 +129,7 @@ def get_referencia_registro_alta(
 ) -> str:
     """
     Genera la cadena de referencia para el registro de alta
+
     Formato AEAT con campos separados por &
 
     Returns:
@@ -260,8 +262,9 @@ huella = calcular_huella(
 )
 
 # Resultado esperado:
-# Cadena: IDEmisorFactura=B12345678&NumSerieFactura=A001&FechaExpedicionFactura=14-11-2024&
-#         TipoFactura=F1&CuotaTotal=42.00&ImporteTotal=242.00&Huella=ABCD...&
-#         FechaHoraHusoGenRegistro=2024-11-14T10:30:00+01:00
+# Cadena:
+#   IDEmisorFactura=B12345678&NumSerieFactura=A001&FechaExpedicionFactura=14-11-2024&
+#   TipoFactura=F1&CuotaTotal=42.00&ImporteTotal=242.00&Huella=ABCD...&
+#   FechaHoraHusoGenRegistro=2024-11-14T10:30:00+01:00
 # Hash: [64 caracteres hexadecimales en mayúsculas]
 """

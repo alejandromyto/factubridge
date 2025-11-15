@@ -1,6 +1,12 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
 from sqlalchemy import (
-    Boolean,
-    Column,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -10,31 +16,39 @@ from sqlalchemy import (
     Text,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.sql import func
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class ObligadoTributario(Base):
-    """Emisores autorizados (empresas/autónomos)"""
-
     __tablename__ = "obligados_tributarios"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("uuid_generate_v4()"),
     )
-    nif = Column(String(20), unique=True, nullable=False, index=True)
-    nombre_razon_social = Column(String(255), nullable=False)
-    activo = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    nif: Mapped[str] = mapped_column(
+        String(20), unique=True, nullable=False, index=True
+    )
+    nombre_razon_social: Mapped[str] = mapped_column(String(255), nullable=False)
+    activo: Mapped[bool] = mapped_column(default=True, nullable=False)
 
-    # Certificado asociado (cuando lo tengamos)
-    cert_subject = Column(String(500))
-    cert_serial = Column(String(100))
-    cert_valid_until = Column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
+
+    cert_subject: Mapped[str | None] = mapped_column(String(500))
+    cert_serial: Mapped[str | None] = mapped_column(String(100))
+    cert_valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class APIKey(Base):
@@ -42,17 +56,26 @@ class APIKey(Base):
 
     __tablename__ = "api_keys"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("uuid_generate_v4()"),
     )
-    key_hash = Column(
+    key_hash: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False, index=True
     )  # SHA256 del key
-    nif = Column(String(20), ForeignKey("obligados_tributarios.nif"), nullable=False)
-    nombre = Column(String(100))  # Identificador amigable del SIF
-    activa = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_used_at = Column(DateTime(timezone=True))
+    nif: Mapped[str] = mapped_column(
+        ForeignKey("obligados_tributarios.nif"), nullable=False
+    )
+    nombre: Mapped[str | None] = mapped_column(
+        String(100)
+    )  # Identificador amigable del SIF
+    activa: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (Index("idx_api_keys_nif_activa", "nif", "activa"),)
 
@@ -62,60 +85,84 @@ class RegistroFacturacion(Base):
 
     __tablename__ = "registros_facturacion"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("uuid_generate_v4()"),
     )
-    nif_emisor = Column(
-        String(20), ForeignKey("obligados_tributarios.nif"), nullable=False, index=True
+
+    nif_emisor: Mapped[str] = mapped_column(
+        ForeignKey("obligados_tributarios.nif"), nullable=False, index=True
     )
-    sistema_informatico = Column(String(50))  # Identificador del SIF (opcional)
+    sistema_informatico: Mapped[str | None] = mapped_column(
+        String(50)
+    )  # Identificador del SIF (opcional)
 
     # Identificación de la factura (clave compuesta)
-    serie = Column(String(60), nullable=False)
-    numero = Column(String(60), nullable=False)
-    fecha_expedicion = Column(DateTime(timezone=True), nullable=False)
-    fecha_operacion = Column(DateTime(timezone=True))
+    serie: Mapped[str] = mapped_column(String(60), nullable=False)
+    numero: Mapped[str] = mapped_column(String(60), nullable=False)
+    fecha_expedicion: Mapped[date] = mapped_column(Date, nullable=False)
+    fecha_operacion: Mapped[date | None] = mapped_column(Date)
 
     # Tipo de operación y factura
-    operacion = Column(String(50), default="Alta", nullable=False)
+    operacion: Mapped[str] = mapped_column(String(50), default="Alta", nullable=False)
     # Valores: Alta, Subsanacion, Anulacion, Alta (rechazo previo), etc.
-    tipo_factura = Column(String(2), nullable=False)  # F1, F2, R1, R2, R3, R4, R5, F3
+    tipo_factura: Mapped[str] = mapped_column(
+        String(2), nullable=False
+    )  # F1, F2, R1, R2, R3, R4, R5, F3
 
     # Datos JSON completos
-    factura_json = Column(JSONB, nullable=False)  # JSON original del SIF
+    factura_json: Mapped[dict] = mapped_column(
+        postgresql.JSONB, nullable=False
+    )  # JSON original del SIF
 
     # Datos económicos (desnormalizados para consultas rápidas)
-    importe_total = Column(Numeric(14, 2))
-    cuota_total = Column(Numeric(14, 2))
-    descripcion = Column(Text)
+    importe_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    cuota_total: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    descripcion: Mapped[str | None] = mapped_column(Text)
 
     # Huella y firma
-    huella = Column(String(128), index=True)  # SHA-256 hex
-    huella_anterior = Column(String(128))  # Para encadenamiento
-    xml_generado = Column(Text)  # XML firmado enviado a AEAT
-    xml_respuesta = Column(Text)  # XML de respuesta de AEAT
-    qr_data = Column(Text)  # URL del QR
+    huella: Mapped[str | None] = mapped_column(
+        String(128), index=True, nullable=False
+    )  # SHA-256 hex
+    huella_anterior: Mapped[str | None] = mapped_column(
+        String(128)
+    )  # Para encadenamiento
+    xml_generado: Mapped[str | None] = mapped_column(Text)  # XML firmado enviado a AEAT
+    xml_respuesta: Mapped[str | None] = mapped_column(Text)  # XML de respuesta de AEAT
+    qr_data: Mapped[str | None] = mapped_column(Text)  # URL del QR
 
     # Estado de envío a AEAT
-    estado = Column(String(50), default="pendiente_envio", nullable=False, index=True)
+    estado: Mapped[str] = mapped_column(
+        String(50), default="pendiente_envio", nullable=False, index=True
+    )
     # Estados: pendiente_envio, enviando, correcto, aceptado_con_errores,
-    #          incorrecto, duplicado, anulado, factura_inexistente, no_registrado, error_servidor_aeat
+    #          incorrecto, duplicado, anulado, factura_inexistente,
+    #          no_registrado, error_servidor_aeat
 
-    csv = Column(String(100))  # CSV devuelto por AEAT cuando aceptado
-    respuesta_aeat = Column(JSONB)  # Respuesta completa parseada de AEAT
+    csv: Mapped[str | None] = mapped_column(
+        String(100)
+    )  # CSV devuelto por AEAT cuando aceptado
+    respuesta_aeat: Mapped[dict | None] = mapped_column(
+        postgresql.JSONB
+    )  # Respuesta completa parseada de AEAT
 
     # Códigos de error
-    codigo_error = Column(String(20))
-    mensaje_error = Column(Text)
+    codigo_error: Mapped[str | None] = mapped_column(String(20))
+    mensaje_error: Mapped[str | None] = mapped_column(Text)
 
     # Control de envíos
-    intentos_envio = Column(Integer, default=0)
-    ultimo_intento_at = Column(DateTime(timezone=True))
+    intentos_envio: Mapped[int] = mapped_column(default=0)
+    ultimo_intento_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    enviado_aeat_at = Column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), onupdate=func.now()
+    )
+    enviado_aeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         Index("idx_registros_nif_fecha", "nif_emisor", "fecha_expedicion"),
@@ -136,17 +183,24 @@ class Webhook(Base):
 
     __tablename__ = "webhooks"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("uuid_generate_v4()"),
     )
-    nif = Column(String(20), ForeignKey("obligados_tributarios.nif"), nullable=False)
-    url = Column(String(500), nullable=False)
-    eventos = Column(
-        JSONB, nullable=False
-    )  # ["registro.correcto", "registro.incorrecto"]
-    activo = Column(Boolean, default=True, nullable=False)
-    secret = Column(String(64))  # Para firmar payload HMAC
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    nif: Mapped[str] = mapped_column(
+        ForeignKey("obligados_tributarios.nif"), nullable=False
+    )
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    # Lista de eventos soportados ["registro.correcto", "registro.incorrecto"]
+    eventos: Mapped[list[str]] = mapped_column(postgresql.JSONB, nullable=False)
+    activo: Mapped[bool] = mapped_column(default=True, nullable=False)
+    secret: Mapped[Optional[str]] = mapped_column(
+        String(64)
+    )  # Para firmar payload HMAC
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
     __table_args__ = (Index("idx_webhooks_nif_activo", "nif", "activo"),)
 
@@ -156,27 +210,37 @@ class EventoWebhook(Base):
 
     __tablename__ = "eventos_webhook"
 
-    id = Column(
-        UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
+    id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("uuid_generate_v4()"),
     )
-    webhook_id = Column(UUID(as_uuid=True), ForeignKey("webhooks.id"), nullable=False)
-    registro_id = Column(
-        UUID(as_uuid=True), ForeignKey("registros_facturacion.id"), nullable=False
+    webhook_id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True), ForeignKey("webhooks.id"), nullable=False
+    )
+    registro_id: Mapped[UUID] = mapped_column(
+        postgresql.UUID(as_uuid=True),
+        ForeignKey("registros_facturacion.id"),
+        nullable=False,
     )
 
-    evento = Column(String(50), nullable=False)  # "registro.correcto"
-    payload = Column(JSONB, nullable=False)
+    evento: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # "registro.correcto"
+    # Payload enviado a webhooks
+    payload: Mapped[dict | list] = mapped_column(postgresql.JSONB, nullable=False)
 
     # Estado del envío
-    estado = Column(String(50), default="pendiente", nullable=False)
+    estado: Mapped[str] = mapped_column(String(50), default="pendiente", nullable=False)
     # Estados: pendiente, enviado, error
+    intentos: Mapped[int] = mapped_column(Integer, default=0)
+    http_status: Mapped[Optional[int]] = mapped_column(Integer)
+    respuesta: Mapped[Optional[str]] = mapped_column(Text)
 
-    intentos = Column(Integer, default=0)
-    http_status = Column(Integer)
-    respuesta = Column(Text)
-
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    enviado_at = Column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    enviado_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
         Index("idx_eventos_estado", "estado"),

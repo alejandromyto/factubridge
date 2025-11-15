@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 
 # ===== Schemas de entrada (SIF -> API) =====
 
@@ -11,11 +11,9 @@ from pydantic import BaseModel, Field, validator
 class LineaFactura(BaseModel):
     """Línea de factura según especificación AEAT"""
 
-    base_imponible: str = Field(..., pattern=r"(\+|-)?\d{1,12}(\.\d{0,2})?")
-    tipo_impositivo: Optional[str] = Field(None, pattern=r"\d{1,3}(\.\d{0,2})?")
-    cuota_repercutida: Optional[str] = Field(
-        None, pattern=r"(\+|-)?\d{1,12}(\.\d{0,2})?"
-    )
+    base_imponible: Decimal = Field(..., description="Base imponible de la línea")
+    tipo_impositivo: Optional[Decimal] = Field(None, description="Tipo impositivo")
+    cuota_repercutida: Optional[Decimal] = Field(None, description="Cuota repercutida")
     impuesto: Optional[str] = Field("01", pattern=r"^(01|02|03|05)$")
     calificacion_operacion: Optional[str] = Field("S1", pattern=r"^(S1|S2|N1|N2)$")
     clave_regimen: Optional[str] = None
@@ -38,14 +36,15 @@ class FacturaInput(BaseModel):
 
     serie: str = Field(..., max_length=60)
     numero: str = Field(..., max_length=60)
-    fecha_expedicion: str = Field(..., pattern=r"\d{2}-\d{2}-\d{4}")
-    fecha_operacion: Optional[str] = Field(None, pattern=r"\d{2}-\d{2}-\d{4}")
+    fecha_expedicion: date
+    fecha_operacion: Optional[date] = None
 
     tipo_factura: str = Field(..., pattern=r"^(F1|F2|R1|R2|R3|R4|R5|F3)$")
     descripcion: str = Field(..., min_length=1, max_length=500)
 
-    lineas: List[LineaFactura] = Field(..., min_items=1, max_items=12)
-    importe_total: str = Field(..., pattern=r"(\+|-)?\d{1,12}(\.\d{0,2})?")
+    lineas: List[LineaFactura] = Field(..., min_length=1, max_length=12)
+
+    importe_total: Decimal = Field(...)
 
     # Destinatario (opcional para F2/R5)
     nif: Optional[str] = Field(None, max_length=20)
@@ -61,8 +60,8 @@ class FacturaInput(BaseModel):
     incidencia: Optional[str] = None
     especial: Optional[dict] = None
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "serie": "A",
                 "numero": "234634",
@@ -81,6 +80,14 @@ class FacturaInput(BaseModel):
                 "importe_total": "242.00",
             }
         }
+    )
+
+    # Validadores para convertir fechas de string DD-MM-YYYY a date
+    @validator("fecha_expedicion", "fecha_operacion", pre=True)
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v
 
 
 # ===== Schemas de respuesta =====
@@ -95,8 +102,7 @@ class FacturaResponse(BaseModel):
     qr: str = Field(..., description="Código QR en base64")
     huella: Optional[str] = Field(None, description="Huella o hash del registro")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RegistroEstado(BaseModel):
@@ -105,7 +111,7 @@ class RegistroEstado(BaseModel):
     nif: str
     serie: str
     numero: str
-    fecha_expedicion: str
+    fecha_expedicion: date
     operacion: str
     estado: str
     url: Optional[str] = None
@@ -114,8 +120,7 @@ class RegistroEstado(BaseModel):
     mensaje_error: Optional[str] = None
     estado_registro_duplicado: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ErrorResponse(BaseModel):
@@ -138,10 +143,16 @@ class AnulacionInput(BaseModel):
 
     serie: str
     numero: str
-    fecha_expedicion: str = Field(..., pattern=r"\d{2}-\d{2}-\d{4}")
+    fecha_expedicion: date
     rechazo_previo: str = Field("N", pattern=r"^(N|S)$")
     sin_registro_previo: str = Field("N", pattern=r"^(N|S)$")
     incidencia: Optional[str] = None
+
+    @validator("fecha_expedicion", pre=True)
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v
 
 
 class ConsultaFacturaInput(BaseModel):
@@ -149,8 +160,32 @@ class ConsultaFacturaInput(BaseModel):
 
     serie: str
     numero: str
-    fecha_expedicion: str = Field(..., pattern=r"\d{2}-\d{2}-\d{4}")
-    fecha_operacion: Optional[str] = Field(None, pattern=r"\d{2}-\d{2}-\d{4}")
+    fecha_expedicion: date
+    fecha_operacion: Optional[date] = None
+
+    @validator("fecha_expedicion", "fecha_operacion", pre=True)
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v
+
+
+class HealthOut(BaseModel):
+    estado: str
+    nif: str
+    entorno: str
+
+
+class RegistroOut(BaseModel):
+    uuid: str
+    serie: str
+    numero: str
+    fecha_expedicion: str
+    operacion: str
+    estado: str
+    importe_total: Optional[str]
+    huella: str
+    created_at: Optional[str]
 
 
 # ===== Schemas internos =====
@@ -161,11 +196,17 @@ class HuellaCalculo(BaseModel):
 
     nif_emisor: str
     numero_factura: str
-    fecha_expedicion: str
+    fecha_expedicion: date
     tipo_factura: str
     cuota_total: Decimal
     importe_total: Decimal
     huella_anterior: Optional[str] = None
+
+    @validator("fecha_expedicion", pre=True)
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v
 
 
 class WebhookPayload(BaseModel):

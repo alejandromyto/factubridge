@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -10,10 +11,10 @@ class Settings(BaseSettings):
         case_sensitive = False
 
     # Base de datos
-    database_url: str
+    database_url: str = Field(default="", min_length=1)
 
     # Redis
-    redis_url: str
+    redis_url: str = Field(default="redis://localhost:6379/0")
 
     # Entorno
     env: str = "development"
@@ -28,7 +29,7 @@ class Settings(BaseSettings):
     rate_limit_per_minute: int = 60
 
     # AEAT
-    aeat_wsdl_url: str
+    aeat_wsdl_url: str = Field(default="", min_length=1)
     aeat_timeout: int = 30
 
     # Certificados (cuando los tengas)
@@ -49,6 +50,13 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+    @field_validator("database_url", "aeat_wsdl_url")
+    @classmethod
+    def check_required_urls(cls, v: str) -> str:
+        if not v:
+            raise ValueError("Este campo es obligatorio en .env")
+        return v
 
 
 @lru_cache

@@ -1,16 +1,17 @@
-from datetime import datetime
-from typing import List
+from datetime import date, datetime
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from pydantic import BaseModel, field_validator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_nif
 from app.config import settings
 from app.database import get_db
 from app.models import RegistroFacturacion
-from app.schemas import ErrorResponse, RegistroEstado
+from app.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 
 router = APIRouter()
 
@@ -31,7 +32,7 @@ async def consultar_estado_registro(
     uuid: UUID = Query(..., description="UUID del registro"),
     nif: str = Depends(get_current_nif),
     db: AsyncSession = Depends(get_db),
-):
+) -> RegistroEstado:
     """
     GET /v1/status?uuid=...
 
@@ -71,7 +72,7 @@ async def consultar_estado_registro(
         nif=registro.nif_emisor,
         serie=registro.serie,
         numero=registro.numero,
-        fecha_expedicion=formatear_fecha(registro.fecha_expedicion),
+        fecha_expedicion=registro.fecha_expedicion,
         operacion=registro.operacion,
         estado=estado_api,
         url=registro.qr_data,
@@ -82,9 +83,26 @@ async def consultar_estado_registro(
     )
 
 
+class FechaRango(BaseModel):
+    fecha_desde: Optional[date] = None
+    fecha_hasta: Optional[date] = None
+
+    @field_validator("fecha_desde", "fecha_hasta", mode="before")
+    @classmethod
+    def parse_date(cls, v: Any) -> date | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        if isinstance(v, date):
+            return v
+        # Opcional: lanzar error si el tipo es inesperado
+        raise ValueError(f"Valor no válido para fecha: {v}")
+
+
 @router.get(
     "/registros",
-    response_model=List[dict],
+    response_model=list[RegistroOut],
     summary="Listar registros",
     description="Lista los registros de facturación del NIF autenticado",
 )
@@ -96,24 +114,26 @@ async def listar_registros(
     estado: str = Query(None),
     fecha_desde: str = Query(None, pattern=r"\d{2}-\d{2}-\d{4}"),
     fecha_hasta: str = Query(None, pattern=r"\d{2}-\d{2}-\d{4}"),
-):
+) -> list[RegistroOut]:
     """
     GET /v1/registros
 
     Lista registros con paginación y filtros.
     """
-    stmt = select(RegistroFacturacion).where(RegistroFacturacion.nif_emisor == nif)
+    stmt = select().where(RegistroFacturacion.nif_emisor == nif)
 
     if estado:
         stmt = stmt.where(RegistroFacturacion.estado == estado)
 
-    if fecha_desde:
-        fecha_dt = datetime.strptime(fecha_desde, "%d-%m-%Y")
-        stmt = stmt.where(RegistroFacturacion.fecha_expedicion >= fecha_dt)
+    fechas = FechaRango.model_validate(
+        {"fecha_desde": fecha_desde, "fecha_hasta": fecha_hasta}
+    )
 
-    if fecha_hasta:
-        fecha_dt = datetime.strptime(fecha_hasta, "%d-%m-%Y")
-        stmt = stmt.where(RegistroFacturacion.fecha_expedicion <= fecha_dt)
+    if fechas.fecha_desde:
+        stmt = stmt.where(RegistroFacturacion.fecha_expedicion >= fechas.fecha_desde)
+
+    if fechas.fecha_hasta:
+        stmt = stmt.where(RegistroFacturacion.fecha_expedicion <= fechas.fecha_hasta)
 
     stmt = (
         stmt.order_by(RegistroFacturacion.created_at.desc())
@@ -125,17 +145,17 @@ async def listar_registros(
     registros = result.scalars().all()
 
     return [
-        {
-            "uuid": str(r.id),
-            "serie": r.serie,
-            "numero": r.numero,
-            "fecha_expedicion": formatear_fecha(r.fecha_expedicion),
-            "operacion": r.operacion,
-            "estado": r.estado,
-            "importe_total": str(r.importe_total) if r.importe_total else None,
-            "huella": r.huella,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-        }
+        RegistroOut(
+            uuid=str(r.id),
+            serie=r.serie,
+            numero=r.numero,
+            fecha_expedicion=formatear_fecha(r.fecha_expedicion),
+            operacion=r.operacion,
+            estado=r.estado,
+            importe_total=str(r.importe_total) if r.importe_total else None,
+            huella=r.huella,
+            created_at=r.created_at.isoformat() if r.created_at else None,
+        )
         for r in registros
     ]
 
@@ -147,10 +167,10 @@ async def listar_registros(
 )
 async def health_check(
     nif: str = Depends(get_current_nif), db: AsyncSession = Depends(get_db)
-):
+) -> HealthOut:
     """
     GET /v1/health
 
     Devuelve estado, NIF y entorno.
     """
-    return {"estado": "OK", "nif": nif, "entorno": settings.env}
+    return HealthOut(estado="OK", nif=nif, entorno=settings.env)

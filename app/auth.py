@@ -1,10 +1,10 @@
 import hashlib
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select, update
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -14,12 +14,12 @@ security = HTTPBearer()
 
 
 def hash_api_key(key: str) -> str:
-    """Hash SHA256 de la API key"""
+    """Hash SHA256 de la API key."""
     return hashlib.sha256(key.encode()).hexdigest()
 
 
 def generar_api_key() -> str:
-    """Genera una API key segura"""
+    """Genera una API key segura."""
     return secrets.token_urlsafe(48)
 
 
@@ -27,9 +27,7 @@ async def verificar_api_key(
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[str, APIKey]:
-    """
-    Verifica la API key y devuelve el NIF asociado.
-    """
+    """Verifica la API key y devuelve el NIF asociado."""
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="API key requerida"
@@ -38,7 +36,7 @@ async def verificar_api_key(
     key_hash = hash_api_key(credentials.credentials)
 
     # Buscar API key
-    stmt = select(APIKey).where(APIKey.key_hash == key_hash, APIKey.activa == True)
+    stmt = select(APIKey).where(and_(APIKey.key_hash == key_hash, APIKey.activa))
     result = await db.execute(stmt)
     api_key = result.scalar_one_or_none()
 
@@ -50,7 +48,7 @@ async def verificar_api_key(
 
     # Verificar que el obligado tributario esté activo
     stmt_obligado = select(ObligadoTributario).where(
-        ObligadoTributario.nif == api_key.nif, ObligadoTributario.activo == True
+        and_(ObligadoTributario.nif == api_key.nif, ObligadoTributario.activo)
     )
     result_obligado = await db.execute(stmt_obligado)
     obligado = result_obligado.scalar_one_or_none()
@@ -64,7 +62,7 @@ async def verificar_api_key(
     stmt_update = (
         update(APIKey)
         .where(APIKey.id == api_key.id)
-        .values(last_used_at=datetime.utcnow())
+        .values(last_used_at=datetime.now(UTC))
     )
     await db.execute(stmt_update)
 
@@ -72,7 +70,7 @@ async def verificar_api_key(
 
 
 async def get_current_nif(
-    auth_data: tuple[str, APIKey] = Depends(verificar_api_key)
+    auth_data: tuple[str, APIKey] = Depends(verificar_api_key),
 ) -> str:
     """Dependency que devuelve solo el NIF actual"""
     return auth_data[0]
@@ -86,6 +84,7 @@ async def crear_api_key(
 ) -> tuple[str, APIKey]:
     """
     Crea una nueva API key para un NIF.
+
     Devuelve (key_plaintext, api_key_object)
     """
     # Verificar que existe el obligado tributario

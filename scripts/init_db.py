@@ -9,20 +9,18 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Añadir el directorio raíz al path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.auth import crear_api_key
 from app.config import settings
 from app.models import Base, ObligadoTributario
 
+# Añadir el directorio raíz al path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-async def init_database():
+
+async def init_database() -> None:
     """Inicializa la base de datos con datos de prueba"""
-
     print("🔧 Conectando a la base de datos...")
     engine = create_async_engine(settings.database_url, echo=True)
 
@@ -33,9 +31,10 @@ async def init_database():
     print("✅ Tablas creadas correctamente")
 
     # Crear sesión
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-    async with async_session() as session:
+    async with async_session() as _session:
+        session: AsyncSession = _session
         # Crear un obligado tributario de prueba
         print("\n👤 Creando obligado tributario de prueba...")
 
@@ -54,10 +53,10 @@ async def init_database():
             db=session, nif="B12345678", nombre="SIF_PRUEBA"
         )
 
-        print(f"✅ API Key generada:")
+        print("✅ API Key generada:")
         print(f"   ID: {api_key_obj.id}")
         print(f"   Nombre: {api_key_obj.nombre}")
-        print(f"\n   🔐 API KEY (guárdala, no se mostrará de nuevo):")
+        print("\n   🔐 API KEY (guárdala, no se mostrará de nuevo):")
         print(f"   {key_plaintext}\n")
 
         print("=" * 70)

@@ -1,7 +1,9 @@
 """
 Generador de código QR según especificaciones AEAT para Verifactu
+
 Documentación: Características del QR y especificaciones del servicio de cotejo
 """
+
 import base64
 import logging
 from io import BytesIO
@@ -100,7 +102,7 @@ def validar_url_qr(url: str) -> bool:
 
         # Verificar caracteres ASCII imprimibles (32-126)
         if not all(32 <= ord(c) <= 126 for c in url):
-            logger.error(f"URL QR contiene caracteres no ASCII imprimibles")
+            logger.error("URL QR contiene caracteres no ASCII imprimibles")
             return False
 
         return True
@@ -137,6 +139,7 @@ url = (
 qr_base64 = generar_qr(url, size_mm=40)
 
 # Resultado:
-# URL: https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=89890001K&numserie=12345678-G33&fecha=14-11-2024&importe=241.40
+# URL: https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR?nif=89890001K
+#               &numserie=12345678-G33&fecha=14-11-2024&importe=241.40
 # QR: data:image/png;base64,iVBORw0KGgo...
 """

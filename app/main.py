@@ -1,16 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import Any, AsyncGenerator, Dict, cast
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.api.v1 import consultas, facturas
-from app.auth import get_current_nif
 from app.config import settings
 from app.database import Base, engine
 
@@ -27,7 +26,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifecycle: startup y shutdown"""
     # Startup
     logger.info("Iniciando Verifactu API...")
@@ -55,8 +54,23 @@ app = FastAPI(
 
 # Rate limiter state
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+# Wrapper para que mypy esté contento
+async def custom_rate_limit_handler(request: Request, exc: Exception) -> Response:
+    """Handler personalizado para rate limit (type-safe)"""
+    # Verificación explícita para satisfacer al type checker
+    if not isinstance(exc, RateLimitExceeded):
+        logger.error(f"Handler called with unexpected exception: {type(exc)}")
+        raise exc
+
+    # Llamada segura con el tipo correcto
+    response = _rate_limit_exceeded_handler(request, exc)
+    return cast(Response, response)
+
+
+# Manejar excepción de rate limit
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_handler)
 
 # ===== Middlewares =====
 
@@ -80,7 +94,7 @@ app.add_middleware(
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error(f"Error no manejado: {exc}", exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -95,7 +109,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/")
-async def root():
+async def root() -> Dict[str, Any]:
     return {
         "nombre": settings.api_title,
         "version": settings.api_version,
@@ -105,7 +119,7 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, str]:
     """Health check para monitorización"""
     return {"status": "healthy"}
 

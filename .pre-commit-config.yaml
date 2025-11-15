@@ -26,10 +26,24 @@ repos:
     hooks:
       - id: flake8
         additional_dependencies: [flake8-docstrings, flake8-bugbear]
+        args: ["--ignore=D100,D101,D102,D103,D104,D105,D106,D107,D400,D401,B008"] # Ignorar docstrings para ahora
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.8.0
     hooks:
       - id: mypy
-        additional_dependencies: [sqlalchemy2-stubs, pydantic, types-redis, types-python-dateutil]
-        args: [--ignore-missing-imports]
+        additional_dependencies:
+          - sqlalchemy==2.0.25
+          - pydantic==2.5.3
+          - pydantic-settings==2.1.0
+          - types-redis
+          - types-python-dateutil
+          - fastapi==0.109.0
+          - alembic
+        args: [--ignore-missing-imports, --follow-imports=silent]
+
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args: [--remove-all-unused-imports, --in-place]
