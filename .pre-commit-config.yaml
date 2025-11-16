@@ -26,7 +26,10 @@ repos:
     hooks:
       - id: flake8
         additional_dependencies: [flake8-docstrings, flake8-bugbear]
-        args: ["--ignore=D100,D101,D102,D103,D104,D105,D106,D107,D400,D401,B008"] # Ignorar docstrings para ahora
+        # Ignorar códigos flake8:
+        # - B008: falso positivo en FastAPI (Depends/Query en defaults)
+        # - Dxxx: docstrings (ignorados temporalmente por deadline 1/Ene)
+        args: ["--ignore=B008,D100,D101,D102,D103,D104,D105,D106,D107,D400,D401"] # Ignorar docstrings para ahora
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.8.0
