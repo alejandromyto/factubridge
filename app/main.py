@@ -65,8 +65,7 @@ async def custom_rate_limit_handler(request: Request, exc: Exception) -> Respons
         raise exc
 
     # Llamada segura con el tipo correcto
-    response = _rate_limit_exceeded_handler(request, exc)
-    return cast(Response, response)
+    return cast(Response, _rate_limit_exceeded_handler(request, exc))
 
 
 # Manejar excepción de rate limit

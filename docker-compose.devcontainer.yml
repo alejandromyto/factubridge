@@ -2,7 +2,10 @@ services:
   api:
     build:
       context: .
+      target: dev
       dockerfile: Dockerfile
-      args:
-        INSTALL_GIT: "true"
-    command: sleep infinity # Override para que no arranque uvicorn inmediatamente
+    user: "1000:1000"
+    environment:
+      ENV: development
+    volumes:
+      - .:/app
