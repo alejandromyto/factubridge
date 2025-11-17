@@ -1,6 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict, cast
+from typing import Any, AsyncGenerator, Dict
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,7 +65,7 @@ async def custom_rate_limit_handler(request: Request, exc: Exception) -> Respons
         raise exc
 
     # Llamada segura con el tipo correcto
-    return cast(Response, _rate_limit_exceeded_handler(request, exc))
+    return _rate_limit_exceeded_handler(request, exc)
 
 
 # Manejar excepción de rate limit
