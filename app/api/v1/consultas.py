@@ -16,8 +16,8 @@ from app.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 router = APIRouter()
 
 
-def formatear_fecha(dt: datetime) -> str:
-    """Convierte datetime a dd-mm-yyyy"""
+def formatear_fecha(dt: date) -> str:
+    """Convierte date a dd-mm-yyyy"""
     return dt.strftime("%d-%m-%Y") if dt else ""
 
 
@@ -120,7 +120,7 @@ async def listar_registros(
 
     Lista registros con paginación y filtros.
     """
-    stmt = select().where(RegistroFacturacion.nif_emisor == nif)
+    stmt = select(RegistroFacturacion).where(RegistroFacturacion.nif_emisor == nif)
 
     if estado:
         stmt = stmt.where(RegistroFacturacion.estado == estado)
@@ -163,7 +163,7 @@ async def listar_registros(
 @router.get(
     "/health",
     summary="Estado API",
-    description="Estado de la API key y información del NIF",
+    description="Estado de la API key e información del NIF",
 )
 async def health_check(
     nif: str = Depends(get_current_nif), db: AsyncSession = Depends(get_db)

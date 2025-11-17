@@ -19,7 +19,8 @@ RUN if [ "$INSTALL_GIT" = "true" ]; then \
     git \
     sudo \
     locales \
-    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    bash bash-completion && \
+    echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/*; \
     fi
@@ -42,7 +43,8 @@ ARG USER_UID=1000
 ARG USER_GID=1000
 RUN if [ "$INSTALL_GIT" = "true" ]; then \
     groupadd --gid $USER_GID $USERNAME && \
-    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME && \
+    useradd --uid $USER_UID --gid $USER_GID \
+    -m -s /bin/bash $USERNAME && \
     # Añadir usuario al grupo sudo
     adduser $USERNAME sudo && \
     # Permitir sudo sin password (formato correcto)

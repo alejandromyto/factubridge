@@ -15,9 +15,9 @@ load_dotenv()
 config = context.config
 
 # Sustituir la URL con la variable de entorno (así usa .env)
-alembic_url = os.getenv("ALEMBIC_DATABASE_URL")
+alembic_url = os.getenv("DATABASE_URL")
 if alembic_url:
-    config.set_main_option("sqlalchemy.url", alembic_url)
+    config.set_main_option("sqlalchemy.url", alembic_url.replace("+asyncpg", ""))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

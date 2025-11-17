@@ -122,7 +122,7 @@ class RegistroFacturacion(Base):
     descripcion: Mapped[str | None] = mapped_column(Text)
 
     # Huella y firma
-    huella: Mapped[str | None] = mapped_column(
+    huella: Mapped[str] = mapped_column(
         String(128), index=True, nullable=False
     )  # SHA-256 hex
     huella_anterior: Mapped[str | None] = mapped_column(
