@@ -1,11 +1,11 @@
-from schemas.consulta_lr import (
+from app.aeat.models.consulta_lr import (
     ConsultaFactuSistemaFacturacion,
     ConsultaFactuSistemaFacturacionType,
     DatosAdicionalesRespuestaType,
     LrfiltroRegFacturacionType,
 )
-from schemas.eventos_sif import CountryType2 as EventosSifCountryType2
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import CountryType2 as EventosSifCountryType2
+from app.aeat.models.eventos_sif import (
     DatosPropiosEventoType,
     DeteccionAnomaliasRegEventoType,
     DeteccionAnomaliasRegFacturacionType,
@@ -15,48 +15,50 @@ from schemas.eventos_sif import (
     ExportacionRegFacturacionPeriodoType,
     IdfacturaExpedidaHuellaType,
 )
-from schemas.eventos_sif import IdfacturaExpedidaType as EventosSifIdfacturaExpedidaType
-from schemas.eventos_sif import IdotroType as EventosSifIdotroType
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
+    IdfacturaExpedidaType as EventosSifIdfacturaExpedidaType,
+)
+from app.aeat.models.eventos_sif import IdotroType as EventosSifIdotroType
+from app.aeat.models.eventos_sif import (
     LanzamientoProcesoDeteccionAnomaliasRegEventoType,
     LanzamientoProcesoDeteccionAnomaliasRegFacturacionType,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     PersonaFisicaJuridicaEstype as EventosSifPersonaFisicaJuridicaEstype,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     PersonaFisicaJuridicaIdtypeType as EventosSifPersonaFisicaJuridicaIdtypeType,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     PersonaFisicaJuridicaType as EventosSifPersonaFisicaJuridicaType,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     RegEventoAntType,
     RegEventoType,
     RegistroEvento,
     ResumenEventosType,
 )
-from schemas.eventos_sif import SiNoType as EventosSifSiNoType
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import SiNoType as EventosSifSiNoType
+from app.aeat.models.eventos_sif import (
     SistemaInformaticoType as EventosSifSistemaInformaticoType,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     TercerosOdestinatarioType as EventosSifTercerosOdestinatarioType,
 )
-from schemas.eventos_sif import (
+from app.aeat.models.eventos_sif import (
     TipoAnomaliaType,
     TipoEventoAgrType,
     TipoEventoType,
 )
-from schemas.eventos_sif import TipoHuellaType as EventosSifTipoHuellaType
-from schemas.eventos_sif import VersionType as EventosSifVersionType
-from schemas.respuesta_consulta_lr import (
+from app.aeat.models.eventos_sif import TipoHuellaType as EventosSifTipoHuellaType
+from app.aeat.models.eventos_sif import VersionType as EventosSifVersionType
+from app.aeat.models.respuesta_consulta_lr import (
     EstadoRegFactuType,
 )
-from schemas.respuesta_consulta_lr import (
+from app.aeat.models.respuesta_consulta_lr import (
     EstadoRegistroType as ConsultaLrEstadoRegistroType,
 )
-from schemas.respuesta_consulta_lr import (
+from app.aeat.models.respuesta_consulta_lr import (
     IndicadorPaginacionType,
     RegistroRespuestaConsultaRegFacturacionType,
     RespuestaConsultaFactuSistemaFacturacion,
@@ -65,27 +67,27 @@ from schemas.respuesta_consulta_lr import (
     RespuestaDatosRegistroFacturacionType,
     ResultadoConsultaType,
 )
-from schemas.respuesta_suministro import (
+from app.aeat.models.respuesta_suministro import (
     EstadoEnvioType,
 )
-from schemas.respuesta_suministro import (
+from app.aeat.models.respuesta_suministro import (
     EstadoRegistroType as SuministroEstadoRegistroType,
 )
-from schemas.respuesta_suministro import (
+from app.aeat.models.respuesta_suministro import (
     RespuestaBaseType,
     RespuestaExpedidaType,
     RespuestaRegFactuSistemaFacturacion,
     RespuestaRegFactuSistemaFacturacionType,
 )
-from schemas.respuesta_val_regist_no_veri_factu import (
+from app.aeat.models.respuesta_val_regist_no_veri_factu import (
     EstadoRegistroType as ValRegistNoVeriFactuEstadoRegistroType,
 )
-from schemas.respuesta_val_regist_no_veri_factu import (
+from app.aeat.models.respuesta_val_regist_no_veri_factu import (
     RespuestaRegType,
     RespuestaValContenidoFactuSistemaFacturacion,
     RespuestaValContenidoFactuSistemaFacturacionType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     CabeceraConsultaSf,
     CabeceraType,
     CalificacionOperacionType,
@@ -94,10 +96,10 @@ from schemas.suministro_informacion import (
     CompletaSinDestinatarioType,
     ContraparteConsultaType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     CountryType2 as SuministroInformacionCountryType2,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     CuponType,
     DatosPresentacion2Type,
     DatosPresentacionType,
@@ -113,14 +115,16 @@ from schemas.suministro_informacion import (
     IdfacturaExpedidaBajaType,
     IdfacturaExpedidaBctype,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     IdfacturaExpedidaType as SuministroInformacionIdfacturaExpedidaType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     IdOperacionesTrascendenciaTributariaType,
 )
-from schemas.suministro_informacion import IdotroType as SuministroInformacionIdotroType
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
+    IdotroType as SuministroInformacionIdotroType,
+)
+from app.aeat.models.suministro_informacion import (
     ImpuestoType,
     IncidenciaType,
     IndicadorRepresentanteType,
@@ -133,16 +137,16 @@ from schemas.suministro_informacion import (
     OperacionType,
     PeriodoImputacionType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     PersonaFisicaJuridicaEstype as SuministroInformacionPersonaFisicaJuridicaEstype,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     PersonaFisicaJuridicaIdtypeType as SuministroInformacionPersonaFisicaJuridicaIdtypeType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     PersonaFisicaJuridicaType as SuministroInformacionPersonaFisicaJuridicaType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     PrimerRegistroCadenaType,
     RangoFechaExpedicionType,
     RechazoPrevioAnulacionType,
@@ -154,32 +158,37 @@ from schemas.suministro_informacion import (
     RegistroFacturacionAnulacionType,
     SimplificadaCualificadaType,
 )
-from schemas.suministro_informacion import SiNoType as SuministroInformacionSiNoType
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
+    SiNoType as SuministroInformacionSiNoType,
+)
+from app.aeat.models.suministro_informacion import (
     SinRegistroPrevioType,
     SistemaInformaticoConsultaType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     SistemaInformaticoType as SuministroInformacionSistemaInformaticoType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     SubsanacionType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     TercerosOdestinatarioType as SuministroInformacionTercerosOdestinatarioType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     TipoHuellaType as SuministroInformacionTipoHuellaType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     TipoOperacionType,
     TipoPeriodoType,
 )
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     VersionType as SuministroInformacionVersionType,
 )
-from schemas.suministro_lr import RegFactuSistemaFacturacion, RegistroFacturaType
-from schemas.xmldsig_core_schema import (
+from app.aeat.models.suministro_lr import (
+    RegFactuSistemaFacturacion,
+    RegistroFacturaType,
+)
+from app.aeat.models.xmldsig_core_schema import (
     CanonicalizationMethod,
     CanonicalizationMethodType,
     DigestMethod,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     CabeceraConsultaSf,
     ContraparteConsultaType,
     FechaExpedicionConsultaType,

@@ -33,7 +33,7 @@ repos:
           "--max-line-length=88",
           # Ignorar docstrings para ahora
           "--ignore=B008,D100,D101,D102,D103,D104,D105,D106,D107,D400,D401",
-          "--per-file-ignores=app/aeat/schemas/*.py:E501,D205,D200,E741",
+          "--per-file-ignores=app/aeat/models/*.py:E501,D205,D200,E741",
         ]
 
   - repo: https://github.com/pre-commit/mirrors-mypy

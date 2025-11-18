@@ -2,7 +2,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from schemas.suministro_informacion import (
+from xsdata.models.datatype import XmlDateTime
+
+from app.aeat.models.suministro_informacion import (
     CabeceraConsultaSf,
     ClaveTipoFacturaType,
     ClaveTipoRectificativaType,
@@ -29,7 +31,6 @@ from schemas.suministro_informacion import (
     TipoHuellaType,
     TipoPeriodoType,
 )
-from xsdata.models.datatype import XmlDateTime
 
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd"
 

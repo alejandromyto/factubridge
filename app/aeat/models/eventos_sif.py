@@ -2,8 +2,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from schemas.xmldsig_core_schema import Signature
 from xsdata.models.datatype import XmlDateTime
+
+from app.aeat.models.xmldsig_core_schema import Signature
 
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd"
 

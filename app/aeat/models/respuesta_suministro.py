@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from schemas.suministro_informacion import (
+from app.aeat.models.suministro_informacion import (
     CabeceraType,
     DatosPresentacionType,
     IdfacturaExpedidaType,
