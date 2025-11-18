@@ -51,6 +51,7 @@ python-dateutil>=2.9.0.post0
 
 # Validación XSD/AEAT
 xmlschema==4.2.0
+xsdata[cli]>=25.7<26.0
 
 # Templates
 jinja2>=3.1.6

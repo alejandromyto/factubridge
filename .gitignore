@@ -13,7 +13,6 @@ dist/
 pip-log.txt
 
 # IDEs
-.vscode/
 .idea/
 *.swp
 *.swo
