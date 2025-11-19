@@ -16,9 +16,12 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # deps-dev: dependencias dev
 ############################
 FROM base AS deps-dev
-# Copy only requirements.txt to maximize cache for dev builds
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
+# Usamos requirements.lock (no requirements.txt) para alinear dev con producción
+COPY requirements.lock .
+COPY dev-requirements.txt .
+RUN pip install --no-cache-dir \
+    -r requirements.lock \
+    -r dev-requirements.txt && \
     rm -rf /root/.cache/pip
 
 #############################
