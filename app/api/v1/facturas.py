@@ -99,21 +99,22 @@ async def crear_factura(
 
         # Calcular totales
         cuota_total = calcular_cuota_total(
-            [linea.model_dump() for linea in factura_input.lineas]
+            [linea.model_dump() for linea in factura_input.lineas],
         )
         importe_total = Decimal(factura_input.importe_total)
-
+        if factura_input.tipo_factura == "F2":
+            if importe_total >= Decimal("3000"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Factura simplificada (F2) supera "
+                        "importe máximo permitido (3.000)."
+                    ),
+                )
         # Obtener huella anterior (última del NIF)
         stmt_anterior = (
             select(RegistroFacturacion)
-            .where(
-                and_(
-                    RegistroFacturacion.nif_emisor == nif,
-                    RegistroFacturacion.estado.in_(
-                        ["correcto", "aceptado_con_errores"]
-                    ),
-                )
-            )
+            .where(RegistroFacturacion.nif_emisor == nif)
             .order_by(RegistroFacturacion.created_at.desc())
             .limit(1)
         )
@@ -171,6 +172,7 @@ async def crear_factura(
             qr_base64 = ""
 
         # Crear registro
+
         registro = RegistroFacturacion(
             nif_emisor=nif,
             serie=factura_input.serie,

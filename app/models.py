@@ -81,7 +81,38 @@ class APIKey(Base):
 
 
 class RegistroFacturacion(Base):
-    """Registros de facturación enviados por los SIFs"""
+    """Registros de facturación enviados por los SIFs
+
+    Attributes:
+        id (uuid.UUID): Identificador único del registro.
+        nif_emisor (str): NIF del emisor de la factura.
+        sistema_informatico (str | None): Nombre del SIF que generó la factura.
+        serie (str): Serie de la factura.
+        numero (str): Número de la factura.
+        fecha_expedicion (datetime.date): Fecha de expedición de la factura.
+        fecha_operacion (datetime.date | None): Fecha de la operación (si aplica).
+        operacion (str): Tipo de operación.
+        tipo_factura (str): Código del tipo de factura (p. ej., "F1").
+        factura_json (dict): Contenido de la factura en formato JSON.
+        importe_total (decimal.Decimal | None): Importe total de la factura.
+        cuota_total (decimal.Decimal | None): Cuota total del IVA.
+        descripcion (str | None): Descripción de la factura.
+        huella (str): Huella única de la factura.
+        huella_anterior (str | None): Huella de la factura anterior (en cadenas).
+        xml_generado (str | None): XML enviado a la AEAT.
+        xml_respuesta (str | None): XML de respuesta de la AEAT.
+        qr_data (str | None): Datos codificados en el QR.
+        estado (str): Estado actual del registro (p. ej., "pendiente", "enviado").
+        csv (str | None): Referencia al archivo CSV asociado.
+        respuesta_aeat (dict | None): Respuesta estructurada de la AEAT.
+        codigo_error (str | None): Código de error devuelto por la AEAT.
+        mensaje_error (str | None): Mensaje descriptivo del error.
+        intentos_envio (int): Número de intentos de envío a la AEAT.
+        ultimo_intento_at (datetime.datetime | None): Fecha y hora del último intento.
+        created_at (datetime.datetime): Fecha y hora de creación del registro.
+        updated_at (datetime.datetime | None): Fecha hora de la última actualización.
+        enviado_aeat_at (datetime.datetime | None): Fecha hora de envío OK a la AEAT.
+    """
 
     __tablename__ = "registros_facturacion"
 
