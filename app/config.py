@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     # API
     api_prefix: str = "/v1"
-    api_title: str = "Verifactu API"
+    api_title: str = "Factubridge"
     api_version: str = "1.0.0"
 
     # Rate limiting

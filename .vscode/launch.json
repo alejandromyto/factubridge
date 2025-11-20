@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Verifactu API Debug",
+            "name": "Factubridge",
             "type": "debugpy",
             "request": "launch",
             "module": "uvicorn",

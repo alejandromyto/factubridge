@@ -11,12 +11,14 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.auth import crear_api_key
-from app.config import settings
-from app.models import Base, ObligadoTributario
-
-# Añadir el directorio raíz al path
+# Añadir el directorio raíz al path. Sin esto falla python scripts/init_db.py
 sys.path.insert(0, str(Path(__file__).parent.parent))
+# isort: off
+from app.auth import crear_api_key  # noqa: E402
+from app.config import settings  # noqa: E402
+from app.models import Base, ObligadoTributario  # noqa: E402
+
+# isort: on
 
 
 async def init_database() -> None:

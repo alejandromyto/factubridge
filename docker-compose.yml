@@ -3,25 +3,25 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: verifactu_db
+    container_name: factubridge_db
     environment:
-      POSTGRES_DB: verifactu
-      POSTGRES_USER: verifactu
-      POSTGRES_PASSWORD: verifactu_dev_pass
+      POSTGRES_DB: factubridge
+      POSTGRES_USER: factubridge
+      POSTGRES_PASSWORD: dev_pass
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U verifactu" ]
+      test: [ "CMD-SHELL", "pg_isready -U factubridge" ]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: verifactu_redis
+    container_name: factubridge_redis
     ports:
       - "6379:6379"
     volumes:
@@ -36,11 +36,11 @@ services:
     build:
       context: .
       target: prod
-    container_name: verifactu_api
+    container_name: factubridge_api
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://verifactu:verifactu_dev_pass@db:5432/verifactu
+      DATABASE_URL: postgresql+asyncpg://factubridge:dev_pass@db:5432/factubridge
       REDIS_URL: redis://redis:6379/0
       ENV: production
     depends_on:

@@ -29,7 +29,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifecycle: startup y shutdown"""
     # Startup
-    logger.info("Iniciando Verifactu API...")
+    logger.info("Iniciando Factubridge...")
 
     # Crear tablas (en producción usar Alembic)
     if settings.debug:
@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     yield
 
     # Shutdown
-    logger.info("Cerrando Verifactu API...")
+    logger.info("Cerrando Factubridge...")
     await engine.dispose()
 
 

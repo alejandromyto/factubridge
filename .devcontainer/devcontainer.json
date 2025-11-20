@@ -1,5 +1,5 @@
 {
-  "name": "Verifactu API Dev",
+  "name": "Factubridge",
   "dockerComposeFile": [
     "../docker-compose.yml",
     "../docker-compose.devcontainer.yml"
