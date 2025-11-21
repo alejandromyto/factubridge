@@ -9,14 +9,14 @@ import asyncio
 import sys
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 # Añadir el directorio raíz al path. Sin esto falla python scripts/init_db.py
 sys.path.insert(0, str(Path(__file__).parent.parent))
 # isort: off
-from app.auth import crear_api_key  # noqa: E402
+from app.auth import crear_instalacion_sif  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.models import Base, ObligadoTributario  # noqa: E402
+from app.models import Base, ColaboradorSocial, ObligadoTributario  # noqa: E402
 
 # isort: on
 
@@ -35,31 +35,45 @@ async def init_database() -> None:
     # Crear sesión
     async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-    async with async_session() as _session:
-        session: AsyncSession = _session
-        # Crear un obligado tributario de prueba
-        print("\n👤 Creando obligado tributario de prueba...")
-
-        obligado = ObligadoTributario(
-            nif="B12345678", nombre_razon_social="EMPRESA PRUEBA SL", activo=True
+    async with async_session() as session:
+        # 1. Crear colaborador social
+        print("\n🏢 Creando colaborador social...")
+        colaborador = ColaboradorSocial(
+            name="Intergal Soc.Coop.Galega",
+            nif="F36856276",
+            software_name="Factubridge",
+            software_version="0.0.1",
         )
+        session.add(colaborador)
+        await session.commit()
+        await session.refresh(colaborador)
+        print(f"✅ Colaborador creado: {colaborador.name}")
 
+        # 2. Crear obligado tributario de prueba
+        print("\n👤 Creando obligado tributario de prueba...")
+        obligado = ObligadoTributario(
+            nif="00000001R",
+            nombre_razon_social="EMPRESA PRUEBAS SL",
+            activo=True,
+            colaborador_id=colaborador.id,
+        )
         session.add(obligado)
         await session.commit()
+        await session.refresh(obligado)
         print(f"✅ Obligado creado: {obligado.nif} - {obligado.nombre_razon_social}")
 
-        # Crear API key para el obligado
-        print("\n🔑 Generando API key...")
-
-        key_plaintext, api_key_obj = await crear_api_key(
-            db=session, nif="B12345678", nombre="SIF_PRUEBA"
+        # 3. Crear instalación SIF con API key
+        print("\n🔑 Generando instalación SIF y API key...")
+        key_plaintext, instalacion = await crear_instalacion_sif(
+            db=session,
+            obligado_id=obligado.id,
+            nombre="SIF PRUEBAS",
         )
 
-        print("✅ API Key generada:")
-        print(f"   ID: {api_key_obj.id}")
-        print(f"   Nombre: {api_key_obj.nombre}")
-        print("\n   🔐 API KEY (guárdala, no se mostrará de nuevo):")
+        print(f"✅ Instalación SIF creada (ID: {instalacion.id})")
+        print("🔐 API Key (guardar en lugar seguro, no se mostrará más):")
         print(f"   {key_plaintext}\n")
+        print(f"   Nombre: {obligado.nombre_razon_social}")
 
         print("=" * 70)
         print("Ejemplo de uso con curl:")

@@ -49,7 +49,7 @@ repos:
           - fastapi==0.121.2
           - alembic==1.17.2
           - slowapi==0.1.9
-        args: [--ignore-missing-imports, --follow-imports=silent]
+    #    args: [--ignore-missing-imports, --follow-imports=silent]
 
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1

@@ -7,10 +7,10 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_nif
+from app.auth import verificar_api_key
 from app.config import settings
 from app.database import get_db
-from app.models import RegistroFacturacion
+from app.models import InstalacionSIF, RegistroFacturacion
 from app.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 
 router = APIRouter()
@@ -30,7 +30,7 @@ def formatear_fecha(dt: date) -> str:
 )
 async def consultar_estado_registro(
     uuid: UUID = Query(..., description="UUID del registro"),
-    nif: str = Depends(get_current_nif),
+    instalacion: InstalacionSIF = Depends(verificar_api_key),
     db: AsyncSession = Depends(get_db),
 ) -> RegistroEstado:
     """
@@ -48,7 +48,7 @@ async def consultar_estado_registro(
         )
 
     # Verificar que pertenece al NIF autenticado
-    if registro.nif_emisor != nif:
+    if registro.instalacion_sif_id != instalacion.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tiene permiso para consultar este registro",
@@ -56,8 +56,7 @@ async def consultar_estado_registro(
 
     # Mapear estados internos a estados de API
     estado_api = {
-        "pendiente_envio": "Pendiente",
-        "enviando": "Pendiente",
+        "pendiente": "Pendiente",
         "correcto": "Correcto",
         "aceptado_con_errores": "Aceptado con errores",
         "incorrecto": "Incorrecto",
@@ -69,7 +68,7 @@ async def consultar_estado_registro(
     }.get(registro.estado, registro.estado)
 
     return RegistroEstado(
-        nif=registro.nif_emisor,
+        nif=registro.instalacion_sif.obligado.nif,
         serie=registro.serie,
         numero=registro.numero,
         fecha_expedicion=registro.fecha_expedicion,
@@ -107,7 +106,7 @@ class FechaRango(BaseModel):
     description="Lista los registros de facturación del NIF autenticado",
 )
 async def listar_registros(
-    nif: str = Depends(get_current_nif),
+    instalacion: InstalacionSIF = Depends(verificar_api_key),
     db: AsyncSession = Depends(get_db),
     limite: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
@@ -120,7 +119,9 @@ async def listar_registros(
 
     Lista registros con paginación y filtros.
     """
-    stmt = select(RegistroFacturacion).where(RegistroFacturacion.nif_emisor == nif)
+    stmt = select(RegistroFacturacion).where(
+        RegistroFacturacion.instalacion_sif_id == instalacion.id
+    )
 
     if estado:
         stmt = stmt.where(RegistroFacturacion.estado == estado)
@@ -166,11 +167,11 @@ async def listar_registros(
     description="Estado de la API key e información del NIF",
 )
 async def health_check(
-    nif: str = Depends(get_current_nif), db: AsyncSession = Depends(get_db)
+    instalacion: InstalacionSIF = Depends(verificar_api_key),
 ) -> HealthOut:
     """
     GET /v1/health
 
     Devuelve estado, NIF y entorno.
     """
-    return HealthOut(estado="OK", nif=nif, entorno=settings.env)
+    return HealthOut(estado="OK", nif=instalacion.obligado.nif, entorno=settings.env)

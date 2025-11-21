@@ -54,3 +54,8 @@ module = [
     "sentry_sdk.*",
 ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+# Desactiva error: Untyped decorator makes function "test_casos_validos" untyped  [misc]
+disallow_untyped_decorators = false

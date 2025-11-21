@@ -1,14 +1,16 @@
 import hashlib
 import secrets
 from datetime import UTC, datetime
+from uuid import UUID
 
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.database import get_db
-from app.models import APIKey, ObligadoTributario
+from app.models import InstalacionSIF, ObligadoTributario
 
 security = HTTPBearer()
 
@@ -26,8 +28,8 @@ def generar_api_key() -> str:
 async def verificar_api_key(
     credentials: HTTPAuthorizationCredentials = Security(security),
     db: AsyncSession = Depends(get_db),
-) -> tuple[str, APIKey]:
-    """Verifica la API key y devuelve el NIF asociado."""
+) -> InstalacionSIF:
+    """Verifica la API key y devuelve la instalación SIF asociada."""
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="API key requerida"
@@ -35,75 +37,77 @@ async def verificar_api_key(
 
     key_hash = hash_api_key(credentials.credentials)
 
-    # Buscar API key
-    stmt = select(APIKey).where(and_(APIKey.key_hash == key_hash, APIKey.activa))
+    # Buscar instalación SIF con joinedload para cargar el obligado
+    stmt = (
+        select(InstalacionSIF)
+        .options(joinedload(InstalacionSIF.obligado))
+        .where(
+            and_(
+                InstalacionSIF.key_hash == key_hash,
+                InstalacionSIF.enabled,
+            )
+        )
+    )
     result = await db.execute(stmt)
-    api_key = result.scalar_one_or_none()
+    instalacion = result.scalar_one_or_none()
 
-    if not api_key:
+    if not instalacion:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key inválida o inactiva",
+            detail="API key inválida o instalación deshabilitada",
         )
 
-    # Verificar que el obligado tributario esté activo
-    stmt_obligado = select(ObligadoTributario).where(
-        and_(ObligadoTributario.nif == api_key.nif, ObligadoTributario.activo)
-    )
-    result_obligado = await db.execute(stmt_obligado)
-    obligado = result_obligado.scalar_one_or_none()
-
-    if not obligado:
+    # Verificar obligado activo
+    if not instalacion.obligado.activo:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Obligado tributario inactivo"
         )
 
-    # Actualizar last_used_at (sin bloquear la request)
+    # Actualizar last_used_at
     stmt_update = (
-        update(APIKey)
-        .where(APIKey.id == api_key.id)
+        update(InstalacionSIF)
+        .where(InstalacionSIF.id == instalacion.id)
         .values(last_used_at=datetime.now(UTC))
     )
     await db.execute(stmt_update)
 
-    return api_key.nif, api_key
-
-
-async def get_current_nif(
-    auth_data: tuple[str, APIKey] = Depends(verificar_api_key),
-) -> str:
-    """Dependency que devuelve solo el NIF actual"""
-    return auth_data[0]
+    return instalacion
 
 
 # ===== Funciones de utilidad =====
 
 
-async def crear_api_key(
-    db: AsyncSession, nif: str, nombre: str = "SIF"
-) -> tuple[str, APIKey]:
+async def crear_instalacion_sif(
+    db: AsyncSession,
+    obligado_id: UUID,
+    nombre: str = "Instalación SIF",
+) -> tuple[str, InstalacionSIF]:
     """
-    Crea una nueva API key para un NIF.
+    Crea una nueva instalación SIF para un obligado tributario.
 
-    Devuelve (key_plaintext, api_key_object)
+    Devuelve (api_key_plaintext, instalacion_sif_object)
     """
     # Verificar que existe el obligado tributario
-    stmt = select(ObligadoTributario).where(ObligadoTributario.nif == nif)
+    stmt = select(ObligadoTributario).where(ObligadoTributario.id == obligado_id)
     result = await db.execute(stmt)
     obligado = result.scalar_one_or_none()
 
     if not obligado:
-        raise ValueError(f"No existe obligado tributario con NIF {nif}")
+        raise ValueError(f"No existe obligado tributario con ID {obligado_id}")
 
-    # Generar key
+    # Generar API key
     key_plaintext = generar_api_key()
     key_hash = hash_api_key(key_plaintext)
 
-    # Guardar en BD
-    api_key = APIKey(key_hash=key_hash, nif=nif, nombre=nombre, activa=True)
+    # Crear instalación
+    instalacion = InstalacionSIF(
+        obligado_id=obligado_id,
+        key_hash=key_hash,  # o api_key_hash según tu columna
+        enabled=True,
+    )
 
-    db.add(api_key)
+    db.add(instalacion)
     await db.commit()
-    await db.refresh(api_key)
+    await db.refresh(instalacion)
 
-    return key_plaintext, api_key
+    return key_plaintext, instalacion

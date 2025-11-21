@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_nif
+from app.auth import verificar_api_key
 from app.config import settings
 from app.core.huella import calcular_huella
 from app.core.qr_generator import generar_qr
 from app.database import get_db
-from app.models import ObligadoTributario, RegistroFacturacion
+from app.models import InstalacionSIF, RegistroFacturacion
 from app.schemas import ErrorResponse, FacturaInput, FacturaResponse
 
 router = APIRouter()
@@ -47,7 +47,7 @@ def calcular_cuota_total(lineas: List[Dict[str, Any]]) -> Decimal:
 async def crear_factura(
     request: Request,
     factura_input: FacturaInput,
-    nif: str = Depends(get_current_nif),
+    instalacion: InstalacionSIF = Depends(verificar_api_key),
     db: AsyncSession = Depends(get_db),
 ) -> FacturaResponse:
     """
@@ -57,29 +57,18 @@ async def crear_factura(
     - UUID del registro
     - QR en base64
     - URL del QR
-    - Estado: "Pendiente"
+    - Estado: "pendiente"
     - Huella
 
-    El procesamiento real (XML, firma, envío AEAT) se hace en background.
+    El procesamiento real (XML, firma?, envío AEAT) se hace en background.
     """
     try:
-        # Verificar obligado tributario activo
-        stmt = select(ObligadoTributario).where(
-            and_(ObligadoTributario.nif == nif, ObligadoTributario.activo)
-        )
-        result = await db.execute(stmt)
-        obligado = result.scalar_one_or_none()
+        obligado = instalacion.obligado
 
-        if not obligado:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Obligado tributario no encontrado o inactivo",
-            )
-
-        # Verificar duplicados (NIF + serie + numero + fecha_expedicion)
+        # Verificar duplicados (SIF + serie + numero + fecha_expedicion)
         stmt_dup = select(RegistroFacturacion).where(
             and_(
-                RegistroFacturacion.nif_emisor == nif,
+                RegistroFacturacion.instalacion_sif_id == instalacion.id,
                 RegistroFacturacion.serie == factura_input.serie,
                 RegistroFacturacion.numero == factura_input.numero,
                 RegistroFacturacion.fecha_expedicion == factura_input.fecha_expedicion,
@@ -114,7 +103,7 @@ async def crear_factura(
         # Obtener huella anterior (última del NIF)
         stmt_anterior = (
             select(RegistroFacturacion)
-            .where(RegistroFacturacion.nif_emisor == nif)
+            .where(RegistroFacturacion.instalacion_sif_id == instalacion.id)
             .order_by(RegistroFacturacion.created_at.desc())
             .limit(1)
         )
@@ -126,7 +115,7 @@ async def crear_factura(
         # Calcular huella
         try:
             huella = calcular_huella(
-                nif_emisor=nif,
+                nif_emisor=obligado.nif,
                 numero_serie=f"{factura_input.serie}{factura_input.numero}",
                 fecha_expedicion=date_to_str(factura_input.fecha_expedicion),
                 tipo_factura=factura_input.tipo_factura,
@@ -158,7 +147,7 @@ async def crear_factura(
         # Construir URL con parámetros codificados
         qr_url = (
             f"{base_url}"
-            f"?nif={quote(nif)}"
+            f"?nif={quote(obligado.nif)}"
             f"&numserie={quote(num_serie)}"
             f"&fecha={quote(date_to_str(factura_input.fecha_expedicion))}"
             f"&importe={factura_input.importe_total}"
@@ -174,11 +163,13 @@ async def crear_factura(
         # Crear registro
 
         registro = RegistroFacturacion(
-            nif_emisor=nif,
+            instalacion_sif_id=instalacion.id,
             serie=factura_input.serie,
             numero=factura_input.numero,
             fecha_expedicion=factura_input.fecha_expedicion,
             fecha_operacion=factura_input.fecha_operacion,
+            destinatario_nif=factura_input.nif,
+            destinatario_nombre=factura_input.nombre,
             operacion="Alta",
             tipo_factura=factura_input.tipo_factura,
             factura_json=factura_input.model_dump(mode="json"),
@@ -188,7 +179,7 @@ async def crear_factura(
             huella=huella,
             huella_anterior=huella_anterior,
             qr_data=qr_url,
-            estado="pendiente_envio",
+            estado="pendiente",
         )
 
         db.add(registro)
@@ -205,7 +196,7 @@ async def crear_factura(
 
         return FacturaResponse(
             uuid=registro.id,
-            estado="Pendiente",
+            estado="pendiente",
             url=qr_url,
             qr=qr_base64,
             huella=huella,
