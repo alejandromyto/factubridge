@@ -5,9 +5,9 @@ For cancellations the payload is similar to create/modify but semantics differ
 This module provides a focused schema for cancellation requests.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Optional, Self
+from typing import List, Optional, Self, Union
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -45,3 +45,20 @@ class FacturaCancelInput(BaseModel):
         if self.fecha_expedicion > date.today():
             raise ValueError("FechaExpedicion no puede ser futura")
         return self
+
+
+class AnulacionInput(BaseModel):
+    """Anulación de factura (POST /cancel)"""
+
+    serie: str
+    numero: str
+    fecha_expedicion: date
+    rechazo_previo: str = Field("N", pattern=r"^(N|S)$")
+    sin_registro_previo: str = Field("N", pattern=r"^(N|S)$")
+    incidencia: Optional[str] = None
+
+    @field_validator("fecha_expedicion", mode="before")
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v

@@ -10,6 +10,8 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from app.aeat.models.suministro_informacion import OperacionExentaType
+
 
 class LineaFactura(BaseModel):
     """A single invoice line.
@@ -38,6 +40,6 @@ class LineaFactura(BaseModel):
     cuota_recargo_equivalencia: Optional[Decimal] = Field(
         None, description="Cuota recargo equivalencia (si aplica)."
     )
-    operacion_exenta: Optional[str] = Field(
-        None, description="Mark 'S' when operation is exenta (exempt)."
+    operacion_exenta: Optional[OperacionExentaType] = Field(
+        None, description="values E1, E2, E3, E4, E5, E6, E7, E8"
     )

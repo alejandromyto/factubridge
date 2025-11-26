@@ -67,7 +67,7 @@ async def init_database() -> None:
         key_plaintext, instalacion = await crear_instalacion_sif(
             db=session,
             obligado_id=obligado.id,
-            nombre="SIF PRUEBAS",
+            nombre_sistema_informatico="SIF PRUEBAS",
         )
 
         print(f"✅ Instalación SIF creada (ID: {instalacion.id})")

@@ -105,16 +105,26 @@ class InstalacionSIF(Base):
     """
     Instalación específica de un Sist. Inf. de Facturación para un Obligado Tributario.
 
-    Contiene:
-    - Configuración de la instalación (environment, endpoint)
-    - API Key para autenticación del SIF hacia este backend
-    - Certificados específicos de la instalación (si difieren del obligado)
-    - Control de secuencias de numeración
+    Ojo: si un cliente tiene varios obligados tributarios (OT) usando un solo
+    despliegue (por ejemplo en un Xespropan), cada OT tendrá su propia instalación SIF
+    pero compartirán el mismo cliente_id.
+    - Control de secuencias de numeración de instalación. Aunque en la realidad sea el
+     mismo despliegue para varios OT, cada OT tendrá su propia secuencia de facturación.
     """
 
     __tablename__ = "instalaciones_sif"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    nombre_sistema_informatico: Mapped[str] = mapped_column(String(255), nullable=False)
+    version_sistema_informatico: Mapped[str] = mapped_column(String(50), nullable=False)
+    id_sistema_informatico: Mapped[str] = mapped_column(String(100), nullable=False)
+    numero_instalacion: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Una panadería de Xespropan puede tener varios obligados tributarios (OT) usando un
+    # solo despliegue Xespropan. Con este campo se identifica el cliente común
+    cliente_id = mapped_column(String(50), index=True, nullable=True)
+    # indicador_multiples_ot: si cliente tiene más de un obligado tributario en su SIF
+    indicador_multiples_ot: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     obligado_id: Mapped[UUID] = mapped_column(
         ForeignKey("obligados_tributarios.id"), nullable=False, index=True
@@ -141,9 +151,10 @@ class InstalacionSIF(Base):
 
     # Relaciones
     obligado: Mapped[ObligadoTributario] = relationship(
-        back_populates="instalaciones_sif"
+        "ObligadoTributario",
+        back_populates="instalaciones_sif",
+        lazy="selectin",  # ← Carga en batch al acceder a obligado
     )
-
     __table_args__ = (Index("idx_key_hash", "key_hash"),)
 
     def __repr__(self) -> str:
@@ -180,11 +191,13 @@ class RegistroFacturacion(Base):
         server_default=text("uuid_generate_v4()"),
     )
 
-    # ===== RELACIONES =====
+    # ===== para nif del obligado: instalacion_sif.obligado.nif =====
     instalacion_sif_id: Mapped[int] = mapped_column(
         ForeignKey("instalaciones_sif.id"), nullable=False, index=True
     )
-
+    emisor_nif: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    # Razón social en el momento de la emisión (por si cambia en el futuro)
+    emisor_nombre: Mapped[str | None] = mapped_column(String(120))
     # ===== IDENTIFICACIÓN DE LA FACTURA =====
     serie: Mapped[str] = mapped_column(String(50), nullable=False)
     numero: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -195,12 +208,12 @@ class RegistroFacturacion(Base):
 
     # F1, F2, etc.
     tipo_factura: Mapped[str] = mapped_column(String(10), nullable=False)
+    tipo_rectificativa: Mapped[str | None] = mapped_column(String(1))
     operacion: Mapped[str] = mapped_column(String(255), nullable=False)
-    descripcion: Mapped[str | None] = mapped_column(Text)
+    # <element name="DescripcionOperacion" type="sf:TextMax500Type"/>
+    descripcion: Mapped[str | None] = mapped_column(String(500))
 
-    importe_total: Mapped[Decimal | None] = mapped_column(
-        DECIMAL(precision=15, scale=2)
-    )
+    importe_total: Mapped[Decimal] = mapped_column(DECIMAL(precision=15, scale=2))
     cuota_total: Mapped[Decimal] = mapped_column(DECIMAL(precision=15, scale=2))
 
     # ===== CONTENIDO COMPLETO =====
@@ -210,8 +223,13 @@ class RegistroFacturacion(Base):
     huella: Mapped[str] = mapped_column(
         String(64), nullable=False, unique=True, index=True
     )
-    huella_anterior: Mapped[str | None] = mapped_column(String(64), index=True)
-
+    anterior_huella: Mapped[str | None] = mapped_column(
+        String(64), index=True, unique=True, nullable=True
+    )
+    anterior_emisor_nif: Mapped[str | None] = mapped_column(String(20))
+    anterior_serie: Mapped[str | None] = mapped_column(String(50))
+    anterior_numero: Mapped[str | None] = mapped_column(String(50))
+    anterior_fecha_expedicion: Mapped[date | None] = mapped_column(Date)
     # ===== QR =====
     qr_data: Mapped[str | None] = mapped_column(Text)
 
@@ -237,6 +255,17 @@ class RegistroFacturacion(Base):
     ultimo_intento_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enviado_aeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
+    # ===== FLAGS DE PROCESO (CRÍTICOS PARA LA API) =====
+    # NEW: Necesario para endpoint /modify y /cancel
+    # rechazo_previo: Mapped[str] = mapped_column(String(1),
+    # server_default="N", nullable=False) # 'N', 'S', 'X'
+    # NEW: Necesario para endpoint /cancel
+    # sin_registro_previo: Mapped[str] = mapped_column(String(1),
+    # server_default="N", nullable=False) # 'N', 'S'
+    # NEW: Marca de incidencia (flag "S")
+    # incidencia: Mapped[str] = mapped_column(String(1),
+    # server_default="N", nullable=False)
+
     # ===== TIMESTAMPS =====
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -246,7 +275,11 @@ class RegistroFacturacion(Base):
     )
 
     # ===== RELACIONES =====
-    instalacion_sif: Mapped["InstalacionSIF"] = relationship()
+    instalacion_sif: Mapped["InstalacionSIF"] = relationship(
+        "InstalacionSIF",
+        back_populates="registros",
+        lazy="selectin",  # ← Carga en batch cuando accedas a instalacion_sif
+    )
     envios_aeat: Mapped[List["EnvioAEAT"]] = relationship(
         back_populates="reg_facturacion",
         cascade="all, delete-orphan",

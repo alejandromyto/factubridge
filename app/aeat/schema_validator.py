@@ -2,7 +2,7 @@ from pathlib import Path
 
 import xmlschema
 
-BASE_DIR = Path(__file__).resolve().parent.parent / "xsd"
+BASE_DIR = Path(__file__).resolve().parent / "xsd"
 
 # Cache de esquemas ya cargados
 _schema_cache = {}

@@ -11,6 +11,8 @@ from typing import List, Optional, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.sif.models.factura_create import FacturaInput
+
 from .especiales import Especial
 from .ids import IdOtro
 from .lineas import LineaFactura
@@ -58,3 +60,12 @@ class FacturaModifyInput(BaseModel):
         if self.fecha_expedicion > date.today():
             raise ValueError("FechaExpedicion no puede ser futura")
         return self
+
+
+# ===== Schemas para operaciones especiales =====
+
+
+class SubsanacionInput(FacturaInput):
+    """Subsanación de factura (PUT /modify)"""
+
+    rechazo_previo: str = Field("N", pattern=r"^(N|S|X)$")

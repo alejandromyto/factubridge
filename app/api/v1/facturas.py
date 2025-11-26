@@ -14,6 +14,7 @@ from app.core.qr_generator import generar_qr
 from app.database import get_db
 from app.models import InstalacionSIF, RegistroFacturacion
 from app.schemas import ErrorResponse, FacturaInput, FacturaResponse
+from app.workers.queue_service import enqueue_registro
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -103,14 +104,27 @@ async def crear_factura(
         # Obtener huella anterior (última del NIF)
         stmt_anterior = (
             select(RegistroFacturacion)
-            .where(RegistroFacturacion.instalacion_sif_id == instalacion.id)
+            .where(
+                RegistroFacturacion.instalacion_sif_id == instalacion.id,
+                # 🔑 FILTRO CRUCIAL: Solo registros válidos para el encadenamiento
+                # RegistroFacturacion.estado.in_(
+                #     [
+                #         EstadoRegistroFacturacion.CORRECTO,
+                #         EstadoRegistroFacturacion.ACEPTADO_CON_ERRORES,
+                #     ]
+                # ),
+            )
             .order_by(RegistroFacturacion.created_at.desc())
             .limit(1)
+            # 🔒 CLÁUSULA DE BLOQUEO PARA CONTROL DE CONCURRENCIA
+            # Esto garantiza atomicidad, impidiendo que otra tarea inserte un CORRECTO
+            # en el gap que transcurre entre esta consulta y el envío del xml a la AEAT.
+            .with_for_update()
         )
         result_anterior = await db.execute(stmt_anterior)
         factura_anterior = result_anterior.scalar_one_or_none()
 
-        huella_anterior = factura_anterior.huella if factura_anterior else None
+        anterior_huella = factura_anterior.huella if factura_anterior else None
 
         # Calcular huella
         try:
@@ -118,10 +132,10 @@ async def crear_factura(
                 nif_emisor=obligado.nif,
                 numero_serie=f"{factura_input.serie}{factura_input.numero}",
                 fecha_expedicion=date_to_str(factura_input.fecha_expedicion),
-                tipo_factura=factura_input.tipo_factura,
+                tipo_factura=factura_input.tipo_factura.value,
                 cuota_total=cuota_total,
                 importe_total=importe_total,
-                huella_anterior=huella_anterior,
+                huella_anterior=anterior_huella,
             )
         except Exception as e:
             logger.error(f"Error calculando huella: {e}")
@@ -177,7 +191,14 @@ async def crear_factura(
             cuota_total=cuota_total,
             descripcion=factura_input.descripcion,
             huella=huella,
-            huella_anterior=huella_anterior,
+            anterior_huella=(
+                factura_anterior.anterior_huella if factura_anterior else None
+            ),
+            anterior_serie=factura_anterior.serie if factura_anterior else None,
+            anterior_numero=factura_anterior.numero if factura_anterior else None,
+            anterior_fecha_expedicion=(
+                factura_anterior.fecha_expedicion if factura_anterior else None
+            ),
             qr_data=qr_url,
             estado="pendiente",
         )
@@ -191,8 +212,8 @@ async def crear_factura(
             f"({registro.id} - {factura_input.serie}{factura_input.numero})"
         )
 
-        # TODO: Encolar para procesamiento en background
-        # await enqueue_registro(registro.id)
+        # 🔑 Enlace al worker
+        enqueue_registro(registro.id)
 
         return FacturaResponse(
             uuid=registro.id,

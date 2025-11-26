@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,11 +7,11 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 from app.auth import verificar_api_key
 from app.config import settings
 from app.database import get_db
 from app.models import InstalacionSIF, RegistroFacturacion
-from app.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 
 router = APIRouter()
 
@@ -175,3 +175,18 @@ async def health_check(
     Devuelve estado, NIF y entorno.
     """
     return HealthOut(estado="OK", nif=instalacion.obligado.nif, entorno=settings.env)
+
+
+class ConsultaFacturaInput(BaseModel):
+    """Consulta estado factura en AEAT (POST /status)"""
+
+    serie: str
+    numero: str
+    fecha_expedicion: date
+    fecha_operacion: Optional[date] = None
+
+    @field_validator("fecha_expedicion", "fecha_operacion", mode="before")
+    def parse_date(cls, v: Union[str, date, None]) -> Optional[date]:
+        if isinstance(v, str):
+            return datetime.strptime(v, "%d-%m-%Y").date()
+        return v

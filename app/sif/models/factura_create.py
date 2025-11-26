@@ -16,6 +16,11 @@ from typing import List, Optional, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.aeat.models.suministro_informacion import (
+    ClaveTipoFacturaType,
+    ClaveTipoRectificativaType,
+)
+
 from .especiales import Especial
 from .ids import IdOtro
 from .lineas import LineaFactura
@@ -23,6 +28,46 @@ from .validators import (
     importe_matches_total,
     parse_dd_mm_yyyy,
 )
+
+
+class IdFacturaArInput(BaseModel):
+    nif_emisor: Optional[str] = Field(
+        None,
+        min_length=9,
+        max_length=9,
+        description="NIF del emisor. Si no se envía, se usará el NIF del emisor de la"
+        " factura actual.",
+    )
+    serie: str = Field(..., max_length=20)
+    numero: str = Field(..., max_length=20)
+    fecha_expedicion: date
+
+
+class FacturasRectificadasInput(BaseModel):
+    """Lista de facturas rectificadas."""
+
+    facturas: List[IdFacturaArInput] = Field(..., min_length=1, max_length=1000)
+
+
+class FacturasSustituidasInput(BaseModel):
+    """Lista de facturas sustituidas."""
+
+    facturas: List[IdFacturaArInput] = Field(..., min_length=1, max_length=1000)
+
+
+class ImporteRectificativaInput(BaseModel):
+    """Validación de entrada para datos de rectificación.
+
+    - base_rectificada: base imponible rectificada
+    - cuota_rectificada: cuota repercutida rectificada
+    - cuota_recargo_rectificado: cuota recargo equivalencia rectificada (opcional)
+    """
+
+    base_rectificada: Decimal = Field(..., max_digits=14, decimal_places=2)
+    cuota_rectificada: Decimal = Field(..., max_digits=14, decimal_places=2)
+    cuota_recargo_rectificado: Optional[Decimal] = Field(
+        None, max_digits=14, decimal_places=2
+    )
 
 
 class FacturaInput(BaseModel):
@@ -37,7 +82,7 @@ class FacturaInput(BaseModel):
     fecha_expedicion: date
     fecha_operacion: Optional[date] = None
 
-    tipo_factura: str = Field(..., pattern=r"^(F1|F2|R1|R2|R3|R4|R5|F3)$")
+    tipo_factura: ClaveTipoFacturaType = Field(...)
     descripcion: str = Field(..., min_length=1, max_length=500)
 
     lineas: List[LineaFactura] = Field(..., min_length=1, max_length=12)
@@ -48,8 +93,8 @@ class FacturaInput(BaseModel):
     nombre: Optional[str] = Field(None, max_length=120)
 
     validar_destinatario: bool = True
-    tipo_rectificativa: Optional[str] = Field(None)
-    importe_rectificativa: Optional[dict] = None
+    tipo_rectificativa: Optional[ClaveTipoRectificativaType] = Field(None)
+    importe_rectificativa: Optional[ImporteRectificativaInput] = None
     facturas_rectificadas: Optional[List[dict]] = None
     facturas_sustituidas: Optional[List[dict]] = None
     incidencia: Optional[str] = None
@@ -77,6 +122,11 @@ class FacturaInput(BaseModel):
         }
     )
 
+    @property
+    def tipo_factura_str(self) -> str:
+        """Para operaciones de string."""
+        return self.tipo_factura.value
+
     @field_validator("fecha_expedicion", "fecha_operacion", mode="before")
     def parse_date(cls, v: str | date | None) -> date | None:
         if isinstance(v, str):
@@ -95,18 +145,20 @@ class FacturaInput(BaseModel):
         - importe_total must equal sum of lines +/- 10.00 (unless special regimes)
         - fecha_expedicion cannot be future date
         """
-        tipo = (self.tipo_factura or "").upper()
-
+        tipo = self.tipo_factura_str
+        # Conjunto de tipos sin destinatario
+        SIN_DESTINATARIO = {
+            ClaveTipoFacturaType.F2,
+            ClaveTipoFacturaType.R5,
+        }
         # 1) destinatarios según tipo
-        if tipo in ("F2", "R5"):
-            # Simplificadas / tickets: no destinatarios
-            if self.nif or self.nombre or self.id_otro:
-                raise ValueError(
-                    f"Para tipo {tipo} no se permite informar destinatario"
-                )
+        if self.tipo_factura in SIN_DESTINATARIO and (
+            self.nif or self.nombre or self.id_otro
+        ):
+            raise ValueError(f"Para tipo {tipo} no se permite informar destinatario")
 
         # 2) F2 importe máximo (3.000 + 10 margen)
-        if tipo == "F2":
+        if self.tipo_factura == ClaveTipoFacturaType.F2:
             importe = Decimal(str(self.importe_total))
             if importe > Decimal("3010"):
                 raise ValueError(
@@ -119,7 +171,10 @@ class FacturaInput(BaseModel):
                 raise ValueError(
                     f"Para {tipo} es obligatorio especificar tipo_rectificativa"
                 )
-            if self.tipo_rectificativa == "S" and not self.facturas_rectificadas:
+            if (
+                self.tipo_rectificativa == ClaveTipoRectificativaType.S
+                and not self.facturas_rectificadas
+            ):
                 raise ValueError(
                     "Para rectificativa por sustitución se requieren facturas"
                     " rectificadas"
