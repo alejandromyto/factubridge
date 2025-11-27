@@ -64,7 +64,7 @@ class ColaboradorSocial(Base):
 class ObligadoTributario(Base):
     """Cliente del colaborador social que emite facturas."""
 
-    __tablename__ = "obligados_tributarios"
+    __tablename__ = "obligado_tributario"
 
     id: Mapped[UUID] = mapped_column(
         postgresql.UUID(as_uuid=True),
@@ -97,7 +97,7 @@ class ObligadoTributario(Base):
     # Relaciones
     colaborador: Mapped[ColaboradorSocial] = relationship(back_populates="obligados")
     instalaciones_sif: Mapped[List["InstalacionSIF"]] = relationship(
-        back_populates="obligado", cascade="all, delete-orphan"
+        back_populates="obligado"
     )
 
 
@@ -112,7 +112,7 @@ class InstalacionSIF(Base):
      mismo despliegue para varios OT, cada OT tendrá su propia secuencia de facturación.
     """
 
-    __tablename__ = "instalaciones_sif"
+    __tablename__ = "instalacion_sif"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
@@ -122,12 +122,14 @@ class InstalacionSIF(Base):
     numero_instalacion: Mapped[str] = mapped_column(String(50), nullable=False)
     # Una panadería de Xespropan puede tener varios obligados tributarios (OT) usando un
     # solo despliegue Xespropan. Con este campo se identifica el cliente común
-    cliente_id = mapped_column(String(50), index=True, nullable=True)
+    cliente_id: Mapped[Optional[str]] = mapped_column(
+        String(50), index=True, nullable=True
+    )
     # indicador_multiples_ot: si cliente tiene más de un obligado tributario en su SIF
     indicador_multiples_ot: Mapped[bool] = mapped_column(nullable=False, default=False)
 
     obligado_id: Mapped[UUID] = mapped_column(
-        ForeignKey("obligados_tributarios.id"), nullable=False, index=True
+        ForeignKey("obligado_tributario.id"), nullable=False, index=True
     )
 
     # API Key única para que el SIF se autentique con este backend
@@ -154,6 +156,9 @@ class InstalacionSIF(Base):
         "ObligadoTributario",
         back_populates="instalaciones_sif",
         lazy="selectin",  # ← Carga en batch al acceder a obligado
+    )
+    registros: Mapped[List["RegistroFacturacion"]] = relationship(
+        back_populates="instalacion_sif",
     )
     __table_args__ = (Index("idx_key_hash", "key_hash"),)
 
@@ -183,7 +188,7 @@ class RegistroFacturacion(Base):
     3. Se envía a AEAT (con posibles reintentos)
     """
 
-    __tablename__ = "registros_facturacion"
+    __tablename__ = "registro_facturacion"
 
     id: Mapped[UUID] = mapped_column(
         postgresql.UUID(as_uuid=True),
@@ -193,7 +198,7 @@ class RegistroFacturacion(Base):
 
     # ===== para nif del obligado: instalacion_sif.obligado.nif =====
     instalacion_sif_id: Mapped[int] = mapped_column(
-        ForeignKey("instalaciones_sif.id"), nullable=False, index=True
+        ForeignKey("instalacion_sif.id"), nullable=False, index=True
     )
     emisor_nif: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     # Razón social en el momento de la emisión (por si cambia en el futuro)
@@ -236,7 +241,10 @@ class RegistroFacturacion(Base):
     # ===== ESTADO Y CONTROL =====
     estado: Mapped[EstadoRegistroFacturacion] = mapped_column(
         Enum(
-            EstadoRegistroFacturacion, name="chk_estado_registro_type", create_type=True
+            EstadoRegistroFacturacion,
+            name="chk_estado_registro_type",
+            create_type=False,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
         ),
         nullable=False,
         server_default=EstadoRegistroFacturacion.PENDIENTE.value,
@@ -275,14 +283,13 @@ class RegistroFacturacion(Base):
     )
 
     # ===== RELACIONES =====
-    instalacion_sif: Mapped["InstalacionSIF"] = relationship(
+    instalacion_sif: Mapped[InstalacionSIF] = relationship(
         "InstalacionSIF",
         back_populates="registros",
         lazy="selectin",  # ← Carga en batch cuando accedas a instalacion_sif
     )
     envios_aeat: Mapped[List["EnvioAEAT"]] = relationship(
         back_populates="reg_facturacion",
-        cascade="all, delete-orphan",
         order_by="EnvioAEAT.created_at.desc()",
     )
 
@@ -324,7 +331,7 @@ class EnvioAEAT(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     registro_facturacion_id: Mapped[UUID] = mapped_column(
-        ForeignKey("registros_facturacion.id"), nullable=False, index=True
+        ForeignKey("registro_facturacion.id"), nullable=False, index=True
     )
 
     # Número de intento (1, 2, 3...)

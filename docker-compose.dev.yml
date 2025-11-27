@@ -1,0 +1,13 @@
+services:
+  api:
+    build:
+      target: dev
+      args:
+        USER_UID: "1000" # id -u $USER del host (para evitar problemas de permisos)
+        USER_GID: "1000" # id -g $USER del host (para evitar problemas de permisos)
+        DOCKER_GROUP_ID: "963" # getent group docker del host (para testcontainers)
+    environment:
+      ENV: development
+    volumes:
+      - .:/app
+    restart: "no"

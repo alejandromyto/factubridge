@@ -1,7 +1,6 @@
 import hashlib
 import secrets
 from datetime import UTC, datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Security, status
@@ -131,11 +130,12 @@ async def crear_instalacion_sif(
     key_plaintext = generar_api_key()
     key_hash = hash_api_key(key_plaintext)
 
-    # Calcular numero_instalacion que toca según contexto
+    # Calcular numero_instalacion que toca según contexto bloqueando todos los registros
+    # que cumplan el where
     if cliente_id:
         # Modo multi-OT: secuencial por cliente (para acuña = N obligados)
         stmt_max = (
-            select(func.max(InstalacionSIF.numero_instalacion))
+            select(InstalacionSIF.numero_instalacion)
             .where(
                 InstalacionSIF.cliente_id == cliente_id,
                 InstalacionSIF.id_sistema_informatico == id_sistema_informatico,
@@ -145,24 +145,18 @@ async def crear_instalacion_sif(
     else:
         # Modo single-OT: secuencial por obligado (para 1 obligado = 1 instalación)
         stmt_max = (
-            select(func.max(InstalacionSIF.numero_instalacion))
+            select(InstalacionSIF.numero_instalacion)
             .where(InstalacionSIF.obligado_id == obligado_id)
             .with_for_update()
         )
 
     result_max = await db.execute(stmt_max)
+    numeros = result_max.scalars().all()
 
-    ultimo_numero_str: Optional[str] = result_max.scalar()
-
-    if ultimo_numero_str is None:
+    if not numeros:
         siguiente = "0001"
     else:
-        try:
-            ultimo_num = int(ultimo_numero_str)
-        except ValueError:
-            raise ValueError(
-                f"Valor no numérico en numero_instalacion: {ultimo_numero_str!r}"
-            )
+        ultimo_num = max(map(int, numeros))
         siguiente = f"{ultimo_num + 1:04d}"
 
     # Crear instalación

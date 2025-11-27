@@ -7,13 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.aeat.models.suministro_informacion import ClaveTipoFacturaType
+from app.api.v1.schemas import ErrorResponse, FacturaResponse
 from app.auth import verificar_api_key
 from app.config import settings
 from app.core.huella import calcular_huella
 from app.core.qr_generator import generar_qr
 from app.database import get_db
-from app.models import InstalacionSIF, RegistroFacturacion
-from app.schemas import ErrorResponse, FacturaInput, FacturaResponse
+from app.models import EstadoRegistroFacturacion, InstalacionSIF, RegistroFacturacion
+from app.sif.models import FacturaInput
 from app.workers.queue_service import enqueue_registro
 
 router = APIRouter()
@@ -92,7 +94,7 @@ async def crear_factura(
             [linea.model_dump() for linea in factura_input.lineas],
         )
         importe_total = Decimal(factura_input.importe_total)
-        if factura_input.tipo_factura == "F2":
+        if factura_input.tipo_factura == ClaveTipoFacturaType.F2:
             if importe_total >= Decimal("3000"):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -178,6 +180,8 @@ async def crear_factura(
 
         registro = RegistroFacturacion(
             instalacion_sif_id=instalacion.id,
+            emisor_nif=obligado.nif,
+            emisor_nombre=obligado.nombre_razon_social,
             serie=factura_input.serie,
             numero=factura_input.numero,
             fecha_expedicion=factura_input.fecha_expedicion,
@@ -185,22 +189,20 @@ async def crear_factura(
             destinatario_nif=factura_input.nif,
             destinatario_nombre=factura_input.nombre,
             operacion="Alta",
-            tipo_factura=factura_input.tipo_factura,
+            tipo_factura=factura_input.tipo_factura.value,
             factura_json=factura_input.model_dump(mode="json"),
             importe_total=importe_total,
             cuota_total=cuota_total,
             descripcion=factura_input.descripcion,
             huella=huella,
-            anterior_huella=(
-                factura_anterior.anterior_huella if factura_anterior else None
-            ),
+            anterior_huella=(anterior_huella if anterior_huella else None),
             anterior_serie=factura_anterior.serie if factura_anterior else None,
             anterior_numero=factura_anterior.numero if factura_anterior else None,
             anterior_fecha_expedicion=(
                 factura_anterior.fecha_expedicion if factura_anterior else None
             ),
             qr_data=qr_url,
-            estado="pendiente",
+            estado=EstadoRegistroFacturacion.PENDIENTE.value,
         )
 
         db.add(registro)

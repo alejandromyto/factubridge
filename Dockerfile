@@ -48,22 +48,30 @@ RUN apt-get update && apt-get install -y \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
-# Crear usuario de desarrollo (UID/GID pueden pasarse en build-args si se desea)
-ARG USERNAME=devuser
+# Valores por defecto (solo para fallback). Indicar valores en docker-compose.dev.yml
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG DOCKER_GROUP_ID=999
 
-RUN groupadd --gid ${USER_GID} ${USERNAME} || true && \
-    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash ${USERNAME} && \
-    adduser ${USERNAME} sudo || true && \
-    echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    mkdir -p /home/${USERNAME}/.cache && \
-    chown -R ${USERNAME}:${USERNAME} /home/${USERNAME} /app || true
+# Crear grupo docker con GID del host (para poder usar testcontainers)
+RUN groupadd --gid ${DOCKER_GROUP_ID} docker
 
-# Copiar código; en dev normalmente se monta el volumen y sobrescribe
-COPY . .
-# Ejecutar como usuario no-root en dev (coincidir con user: "1000:1000" en compose)
-USER ${USERNAME}
+# Crear usuario y su grupo primario
+RUN groupadd --gid ${USER_GID} factubridge && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} -m -s /bin/bash factubridge
+
+# Añadir a grupos secundarios y dar permisos sudo
+RUN usermod -aG docker factubridge && \
+    usermod -aG sudo factubridge && \
+    echo "factubridge ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Descomentar si la imagen de dev se usa en CI o sin volumen montado,
+#RUN chown -R factubridge:factubridge /app
+#COPY --chown=factubridge:factubridge . .
+
+# Ejecutar como usuario no-root en dev
+USER factubridge
+
 # Exponer puerto para conveniencia en dev; no fijamos CMD para que el devcontainer pueda sobrescribir
 EXPOSE 8000
 
@@ -71,9 +79,16 @@ EXPOSE 8000
 # Stage: prod
 ################
 FROM deps-prod AS prod
-# Copiar código para la imagen de producción (no bind-mount)
-COPY . .
-# En producción no instalamos git/sudo ni creamos el usuario dev
+
+# Crear usuario no-root para producción
+RUN useradd -m -s /bin/bash factubridge
+
+# Copiar código con permisos correctos
+RUN chown factubridge:factubridge /app
+COPY --chown=factubridge:factubridge . .
+
+# Cambiar a usuario no-root
+USER factubridge
+
 EXPOSE 8000
-# CMD por defecto para producción
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

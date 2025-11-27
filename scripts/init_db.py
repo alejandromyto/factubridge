@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # isort: off
 from app.auth import crear_instalacion_sif  # noqa: E402
 from app.config import settings  # noqa: E402
-from app.models import Base, ColaboradorSocial, ObligadoTributario  # noqa: E402
+from app.models import ColaboradorSocial, ObligadoTributario  # noqa: E402
 
 # isort: on
 
@@ -25,12 +25,6 @@ async def init_database() -> None:
     """Inicializa la base de datos con datos de prueba"""
     print("🔧 Conectando a la base de datos...")
     engine = create_async_engine(settings.database_url, echo=True)
-
-    print("📋 Creando tablas...")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    print("✅ Tablas creadas correctamente")
 
     # Crear sesión
     async_session = async_sessionmaker(engine, expire_on_commit=False)

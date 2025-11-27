@@ -2,12 +2,18 @@
   "name": "Factubridge",
   "dockerComposeFile": [
     "../docker-compose.yml",
-    "../docker-compose.devcontainer.yml"
+    "../docker-compose.dev.yml"
   ],
   "service": "api",
   "workspaceFolder": "/app",
   "overrideCommand": true,
-  "remoteUser": "devuser",
+  "remoteUser": "factubridge",
+  "mounts": [
+    // Monta el socket de Docker del host dentro del contenedor. Permite Testcontainers
+    // dentro del Dev Container. Sirve solo con esto solamente si el usuario del host
+    // con permiso docker comparte id (1000) con el devuser del contenedor de desarrollo
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
   "customizations": {
     "vscode": {
       "settings": {
