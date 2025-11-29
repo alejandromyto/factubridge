@@ -14,9 +14,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 # Añadir el directorio raíz al path. Sin esto falla python scripts/init_db.py
 sys.path.insert(0, str(Path(__file__).parent.parent))
 # isort: off
-from app.auth import crear_instalacion_sif  # noqa: E402
-from app.config import settings  # noqa: E402
-from app.models import ColaboradorSocial, ObligadoTributario  # noqa: E402
+from app.infrastructure.security.auth import crear_instalacion_sif  # noqa: E402
+from app.config.settings import settings  # noqa: E402
+from app.domain.models.models import ColaboradorSocial, ObligadoTributario  # noqa: E402
 
 # isort: on
 

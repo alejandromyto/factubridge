@@ -8,7 +8,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.aeat.models.suministro_informacion import (
+from app.infrastructure.aeat.models.suministro_informacion import (
     CountryType2,
     PersonaFisicaJuridicaIdtypeType,
 )

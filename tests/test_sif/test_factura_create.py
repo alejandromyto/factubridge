@@ -2,6 +2,10 @@ from datetime import date
 from decimal import Decimal
 
 # Asegúrate de importar tus clases correctamente
+from app.infrastructure.aeat.models.suministro_informacion import (
+    ClaveTipoFacturaType,
+    OperacionExentaType,
+)
 from app.sif.models.factura_create import FacturaInput
 
 # importacion para IdOtroTercero
@@ -142,7 +146,7 @@ def test_ejemplo_exenta_de_iva() -> None:
         "importe_total": "200",
     }
     f = FacturaInput.model_validate(data)
-    assert f.lineas[0].operacion_exenta == "E1"
+    assert f.lineas[0].operacion_exenta == OperacionExentaType.E1
 
 
 # NOTA: Los siguientes tests requieren que tus modelos FacturaInput y LineaFactura
@@ -315,7 +319,7 @@ def test_ejemplo_rectificativa_r1() -> None:
         ],
     }
     f = FacturaInput.model_validate(data)
-    assert f.tipo_factura == "R1"
+    assert f.tipo_factura == ClaveTipoFacturaType.R1
     assert f.fecha_expedicion == date(2025, 4, 10)
 
 
@@ -344,4 +348,4 @@ def test_ejemplo_rectificativa_r4() -> None:
         ],
     }
     f = FacturaInput.model_validate(data)
-    assert f.tipo_factura == "R4"
+    assert f.tipo_factura == ClaveTipoFacturaType.R4

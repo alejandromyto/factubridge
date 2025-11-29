@@ -16,7 +16,7 @@ from typing import List, Optional, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.aeat.models.suministro_informacion import (
+from app.infrastructure.aeat.models.suministro_informacion import (
     ClaveTipoFacturaType,
     ClaveTipoRectificativaType,
 )
@@ -122,11 +122,6 @@ class FacturaInput(BaseModel):
         }
     )
 
-    @property
-    def tipo_factura_str(self) -> str:
-        """Para operaciones de string."""
-        return self.tipo_factura.value
-
     @field_validator("fecha_expedicion", "fecha_operacion", mode="before")
     def parse_date(cls, v: str | date | None) -> date | None:
         if isinstance(v, str):
@@ -145,20 +140,24 @@ class FacturaInput(BaseModel):
         - importe_total must equal sum of lines +/- 10.00 (unless special regimes)
         - fecha_expedicion cannot be future date
         """
-        tipo = self.tipo_factura_str
-        # Conjunto de tipos sin destinatario
         SIN_DESTINATARIO = {
             ClaveTipoFacturaType.F2,
             ClaveTipoFacturaType.R5,
         }
+        RECTIFICATIVAS = {
+            ClaveTipoFacturaType.R1,
+            ClaveTipoFacturaType.R2,
+            ClaveTipoFacturaType.R3,
+            ClaveTipoFacturaType.R4,
+            ClaveTipoFacturaType.R5,
+        }
+        tipo = self.tipo_factura
         # 1) destinatarios según tipo
-        if self.tipo_factura in SIN_DESTINATARIO and (
-            self.nif or self.nombre or self.id_otro
-        ):
-            raise ValueError(f"Para tipo {tipo} no se permite informar destinatario")
+        if tipo in SIN_DESTINATARIO and (self.nif or self.nombre or self.id_otro):
+            raise ValueError(f"Tipo {tipo.value}, no se permite informar destinatario")
 
         # 2) F2 importe máximo (3.000 + 10 margen)
-        if self.tipo_factura == ClaveTipoFacturaType.F2:
+        if tipo == ClaveTipoFacturaType.F2:
             importe = Decimal(str(self.importe_total))
             if importe > Decimal("3010"):
                 raise ValueError(
@@ -166,10 +165,10 @@ class FacturaInput(BaseModel):
                 )
 
         # 3) Rx: require tipo_rectificativa and facturas_rectificadas when needed
-        if tipo.startswith("R"):
+        if tipo in RECTIFICATIVAS:
             if not self.tipo_rectificativa:
                 raise ValueError(
-                    f"Para {tipo} es obligatorio especificar tipo_rectificativa"
+                    f"Para {tipo.value} es obligatorio especificar tipo_rectificativa"
                 )
             if (
                 self.tipo_rectificativa == ClaveTipoRectificativaType.S
@@ -186,7 +185,7 @@ class FacturaInput(BaseModel):
 
         # 4) impuestos/recargo validaciones por linea
         for ln in self.lineas:
-            if getattr(ln, "operacion_exenta", None) == "S":
+            if getattr(ln, "operacion_exenta", None) == "S":  # TODO: REVISAR EXENTA
                 if (
                     getattr(ln, "tipo_impositivo", None)
                     or getattr(ln, "cuota_repercutida", None)

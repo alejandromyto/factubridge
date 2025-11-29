@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-from app.aeat.models.suministro_informacion import OperacionExentaType
+from app.infrastructure.aeat.models.suministro_informacion import OperacionExentaType
 
 
 class LineaFactura(BaseModel):

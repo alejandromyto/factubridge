@@ -9,9 +9,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api.v1 import consultas, facturas
-from app.config import settings
-from app.database import Base, engine
+from app.api.v1 import consulta_endpoint, factura_endpoint
+from app.config.settings import settings
+from app.infrastructure.database import Base, engine
 
 # Configurar logging
 logging.basicConfig(
@@ -124,9 +124,13 @@ async def health_check() -> Dict[str, str]:
 
 
 # Incluir routers
-app.include_router(facturas.router, prefix=settings.api_prefix, tags=["Facturas"])
+app.include_router(
+    factura_endpoint.router, prefix=settings.api_prefix, tags=["Facturas"]
+)
 
-app.include_router(consultas.router, prefix=settings.api_prefix, tags=["Consultas"])
+app.include_router(
+    consulta_endpoint.router, prefix=settings.api_prefix, tags=["Consultas"]
+)
 
 
 if __name__ == "__main__":
