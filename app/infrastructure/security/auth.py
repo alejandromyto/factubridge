@@ -9,8 +9,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.domain.models.aeat_models import InstalacionSIF
-from app.domain.models.models import ObligadoTributario
+from app.domain.models.models import InstalacionSIF, ObligadoTributario
 from app.infrastructure.database import get_db
 
 security = HTTPBearer()

@@ -30,7 +30,7 @@ class RegistroEstado(BaseModel):
     estado: str
     url: Optional[str] = None
     qr: Optional[str] = None
-    codigo_error: Optional[str] = None
+    codigo_error: Optional[int] = None
     mensaje_error: Optional[str] = None
     estado_registro_duplicado: Optional[str] = None
 

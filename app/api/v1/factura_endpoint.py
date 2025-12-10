@@ -11,16 +11,18 @@ from app.api.v1.schemas import ErrorResponse, FacturaResponse
 from app.config.settings import settings
 from app.core.utils.huella import calcular_huella
 from app.core.utils.qr_generator import generar_qr
-from app.domain.models.aeat_models import (
+from app.domain.models.models import (
     EstadoRegistroFacturacion,
     InstalacionSIF,
     RegistroFacturacion,
 )
-from app.infrastructure.aeat.models.suministro_informacion import ClaveTipoFacturaType
+from app.infrastructure.aeat.models.suministro_informacion import (
+    ClaveTipoFacturaType,
+    TipoOperacionType,
+)
 from app.infrastructure.database import get_db
 from app.infrastructure.security.auth import verificar_api_key
 from app.sif.models import FacturaInput
-from app.tasks.queue_service import enqueue_registro
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ async def crear_factura(
     - Estado: "pendiente"
     - Huella
 
-    El procesamiento real (XML, firma?, envío AEAT) se hace en background.
+    El procesamiento real (XML, firma?, envío AEAT) se hace en tarea en background.
     """
     try:
         obligado = instalacion.obligado
@@ -192,8 +194,8 @@ async def crear_factura(
             fecha_operacion=factura_input.fecha_operacion,
             destinatario_nif=factura_input.nif,
             destinatario_nombre=factura_input.nombre,
-            operacion="Alta",
-            tipo_factura=factura_input.tipo_factura.value,
+            operacion=TipoOperacionType.ALTA,
+            tipo_factura=factura_input.tipo_factura,
             factura_json=factura_input.model_dump(mode="json"),
             importe_total=importe_total,
             cuota_total=cuota_total,
@@ -217,10 +219,6 @@ async def crear_factura(
             f"Factura creada: "
             f"({registro.id} - {factura_input.serie}{factura_input.numero})"
         )
-
-        # 🔑 Enlace al worker
-        enqueue_registro(registro.id)
-
         return FacturaResponse(
             uuid=registro.id,
             estado="pendiente",

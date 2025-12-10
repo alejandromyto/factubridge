@@ -1,8 +1,8 @@
-"""initial_schema
+"""initial state
 
-Revision ID: 7a36f91f3438
+Revision ID: ef63ad561de7
 Revises:
-Create Date: 2025-11-26 23:16:05.642708
+Create Date: 2025-12-10 03:46:36.152912
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "7a36f91f3438"
+revision: str = "ef63ad561de7"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -100,13 +100,37 @@ def upgrade() -> None:
         ),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_used_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "ultimo_tiempo_espera",
+            sa.Integer(),
+            nullable=False,
+            comment="Último valor 't' recibido de AEAT (en segundos)",
+        ),
+        sa.Column(
+            "ultimo_envio_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            comment="Fecha/hora del último envío exitoso a AEAT",
+        ),
+        sa.Column(
+            "registros_pendientes",
+            sa.Integer(),
+            nullable=False,
+            comment="Contador de registros PENDIENTES/ENCOLADOS para esta instalación",
+        ),
         sa.ForeignKeyConstraint(
             ["obligado_id"],
             ["obligado_tributario.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("idx_key_hash", "instalacion_sif", ["key_hash"], unique=False)
+    op.create_index(
+        "idx_instalacion_para_worker",
+        "instalacion_sif",
+        ["ultimo_envio_at", "ultimo_tiempo_espera", "registros_pendientes"],
+        unique=False,
+        postgresql_where=sa.text("registros_pendientes > 0"),
+    )
     op.create_index(
         op.f("ix_instalacion_sif_cliente_id"),
         "instalacion_sif",
@@ -124,6 +148,158 @@ def upgrade() -> None:
         "instalacion_sif",
         ["obligado_id"],
         unique=False,
+    )
+    op.create_table(
+        "lote_envio",
+        sa.Column(
+            "id",
+            sa.UUID(),
+            server_default=sa.text("uuid_generate_v4()"),
+            nullable=False,
+        ),
+        sa.Column("instalacion_sif_id", sa.Integer(), nullable=False),
+        sa.Column("num_registros", sa.Integer(), nullable=False),
+        sa.Column("xml_enviado", sa.Text(), nullable=False),
+        sa.Column("xml_respuesta", sa.Text(), nullable=True),
+        sa.Column(
+            "respuesta_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True
+        ),
+        sa.Column("codigo_respuesta", sa.String(length=50), nullable=True),
+        sa.Column("mensaje_respuesta", sa.Text(), nullable=True),
+        sa.Column("tiempo_respuesta_ms", sa.Integer(), nullable=True),
+        sa.Column("endpoint_usado", sa.String(length=500), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "estado",
+            sa.Enum(
+                "Creado",
+                "Encolado",
+                "Enviando",
+                "Correcto",
+                "ParcialmenteCorrecto",
+                "Incorrecto",
+                "Error",
+                "ErrorReintentable",
+                name="chk_estado_lote_envio_type",
+            ),
+            server_default="Creado",
+            nullable=False,
+        ),
+        sa.Column(
+            "csv_aeat",
+            sa.String(length=64),
+            nullable=True,
+            comment=(
+                "Código Seguro de Verificación devuelto por AEAT "
+                "(NULL si todos rechazados)"
+            ),
+        ),
+        sa.Column(
+            "tiempo_espera_recibido",
+            sa.Integer(),
+            nullable=True,
+            comment="Valor 't' devuelto por AEAT en esta respuesta (en segundos)",
+        ),
+        sa.Column(
+            "proximo_envio_permitido_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            comment="Fecha/hora calculada: created_at + tiempo_espera_recibido",
+        ),
+        sa.Column(
+            "num_registros_enviados",
+            sa.Integer(),
+            nullable=False,
+            comment="Número real de registros incluidos en este lote (máx 1000)",
+        ),
+        sa.ForeignKeyConstraint(
+            ["instalacion_sif_id"],
+            ["instalacion_sif.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        op.f("ix_lote_envio_estado"), "lote_envio", ["estado"], unique=False
+    )
+    op.create_index(
+        op.f("ix_lote_envio_instalacion_sif_id"),
+        "lote_envio",
+        ["instalacion_sif_id"],
+        unique=False,
+    )
+    op.create_table(
+        "outbox_event",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("lote_id", sa.UUID(), nullable=False),
+        sa.Column("instalacion_sif_id", sa.Integer(), nullable=False),
+        sa.Column(
+            "estado",
+            sa.Enum(
+                "pendiente",
+                "encolado",
+                "procesado",
+                "error",
+                name="chk_estado_outbox_event_type",
+            ),
+            server_default="pendiente",
+            nullable=False,
+        ),
+        sa.Column("task_name", sa.String(), nullable=False),
+        sa.Column("payload", sa.String(), nullable=False),
+        sa.Column("intentos", sa.Integer(), nullable=False),
+        sa.Column("max_intentos", sa.Integer(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("ultimo_intento_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("procesado_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("error_mensaje", sa.String(length=500), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["instalacion_sif_id"],
+            ["instalacion_sif.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["lote_id"],
+            ["lote_envio.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "idx_outbox_instalacion_estado",
+        "outbox_event",
+        ["instalacion_sif_id", "estado"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_outbox_polling_fifo",
+        "outbox_event",
+        ["created_at", "id"],
+        unique=False,
+        postgresql_where=sa.text("estado = 'pendiente'"),
+    )
+    op.create_index(
+        op.f("ix_outbox_event_created_at"), "outbox_event", ["created_at"], unique=False
+    )
+    op.create_index(
+        op.f("ix_outbox_event_estado"), "outbox_event", ["estado"], unique=False
+    )
+    op.create_index(op.f("ix_outbox_event_id"), "outbox_event", ["id"], unique=False)
+    op.create_index(
+        op.f("ix_outbox_event_instalacion_sif_id"),
+        "outbox_event",
+        ["instalacion_sif_id"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_outbox_event_lote_id"), "outbox_event", ["lote_id"], unique=False
     )
     op.create_table(
         "registro_facturacion",
@@ -162,6 +338,7 @@ def upgrade() -> None:
             "estado",
             sa.Enum(
                 "pendiente",
+                "encolado",
                 "correcto",
                 "aceptado_con_errores",
                 "incorrecto",
@@ -180,11 +357,30 @@ def upgrade() -> None:
         sa.Column(
             "respuesta_aeat", postgresql.JSONB(astext_type=sa.Text()), nullable=True
         ),
-        sa.Column("codigo_error", sa.String(length=50), nullable=True),
-        sa.Column("mensaje_error", sa.Text(), nullable=True),
         sa.Column("intentos_envio", sa.Integer(), nullable=False),
         sa.Column("ultimo_intento_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("enviado_aeat_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("aeat_codigo_error", sa.Integer(), nullable=True),
+        sa.Column("aeat_descripcion_error", sa.String(length=500), nullable=True),
+        sa.Column(
+            "aeat_duplicado_id_peticion",
+            sa.String(length=20),
+            nullable=True,
+            comment="IdPeticion del registro ya existente en AEAT",
+        ),
+        sa.Column(
+            "aeat_duplicado_estado",
+            sa.Enum(
+                "Correcta",
+                "AceptadaConErrores",
+                "Anulada",
+                name="chk_estado_duplicado_aeat_type",
+            ),
+            nullable=True,
+        ),
+        sa.Column("aeat_duplicado_codigo_error", sa.Integer(), nullable=True),
+        sa.Column("aeat_duplicado_descripcion", sa.String(length=500), nullable=True),
+        sa.Column("lote_envio_id", sa.UUID(), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -195,6 +391,10 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["instalacion_sif_id"],
             ["instalacion_sif.id"],
+        ),
+        sa.ForeignKeyConstraint(
+            ["lote_envio_id"],
+            ["lote_envio.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
@@ -247,43 +447,10 @@ def upgrade() -> None:
         ["instalacion_sif_id"],
         unique=False,
     )
-    op.create_table(
-        "envios_aeat",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column("registro_facturacion_id", sa.UUID(), nullable=False),
-        sa.Column("intento_numero", sa.Integer(), nullable=False),
-        sa.Column("xml_enviado", sa.Text(), nullable=False),
-        sa.Column("xml_respuesta", sa.Text(), nullable=True),
-        sa.Column(
-            "respuesta_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
-        sa.Column("exitoso", sa.Boolean(), nullable=False),
-        sa.Column("codigo_respuesta", sa.String(length=50), nullable=True),
-        sa.Column("mensaje_respuesta", sa.Text(), nullable=True),
-        sa.Column("tiempo_respuesta_ms", sa.Integer(), nullable=True),
-        sa.Column("endpoint_usado", sa.String(length=500), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["registro_facturacion_id"],
-            ["registro_facturacion.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
     op.create_index(
-        "idx_envio_registro_intento",
-        "envios_aeat",
-        ["registro_facturacion_id", "intento_numero"],
-        unique=False,
-    )
-    op.create_index(
-        op.f("ix_envios_aeat_registro_facturacion_id"),
-        "envios_aeat",
-        ["registro_facturacion_id"],
+        op.f("ix_registro_facturacion_lote_envio_id"),
+        "registro_facturacion",
+        ["lote_envio_id"],
         unique=False,
     )
     # ### end Alembic commands ###
@@ -292,10 +459,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(
-        op.f("ix_envios_aeat_registro_facturacion_id"), table_name="envios_aeat"
+        op.f("ix_registro_facturacion_lote_envio_id"), table_name="registro_facturacion"
     )
-    op.drop_index("idx_envio_registro_intento", table_name="envios_aeat")
-    op.drop_table("envios_aeat")
     op.drop_index(
         op.f("ix_registro_facturacion_instalacion_sif_id"),
         table_name="registro_facturacion",
@@ -316,10 +481,29 @@ def downgrade() -> None:
     op.drop_index("idx_registro_instalacion_fecha", table_name="registro_facturacion")
     op.drop_index("idx_registro_estado_created", table_name="registro_facturacion")
     op.drop_table("registro_facturacion")
+    op.drop_index(op.f("ix_outbox_event_lote_id"), table_name="outbox_event")
+    op.drop_index(op.f("ix_outbox_event_instalacion_sif_id"), table_name="outbox_event")
+    op.drop_index(op.f("ix_outbox_event_id"), table_name="outbox_event")
+    op.drop_index(op.f("ix_outbox_event_estado"), table_name="outbox_event")
+    op.drop_index(op.f("ix_outbox_event_created_at"), table_name="outbox_event")
+    op.drop_index(
+        "idx_outbox_polling_fifo",
+        table_name="outbox_event",
+        postgresql_where=sa.text("estado = 'pendiente'"),
+    )
+    op.drop_index("idx_outbox_instalacion_estado", table_name="outbox_event")
+    op.drop_table("outbox_event")
+    op.drop_index(op.f("ix_lote_envio_instalacion_sif_id"), table_name="lote_envio")
+    op.drop_index(op.f("ix_lote_envio_estado"), table_name="lote_envio")
+    op.drop_table("lote_envio")
     op.drop_index(op.f("ix_instalacion_sif_obligado_id"), table_name="instalacion_sif")
     op.drop_index(op.f("ix_instalacion_sif_key_hash"), table_name="instalacion_sif")
     op.drop_index(op.f("ix_instalacion_sif_cliente_id"), table_name="instalacion_sif")
-    op.drop_index("idx_key_hash", table_name="instalacion_sif")
+    op.drop_index(
+        "idx_instalacion_para_worker",
+        table_name="instalacion_sif",
+        postgresql_where=sa.text("registros_pendientes > 0"),
+    )
     op.drop_table("instalacion_sif")
     op.drop_index(op.f("ix_obligado_tributario_nif"), table_name="obligado_tributario")
     op.drop_index(

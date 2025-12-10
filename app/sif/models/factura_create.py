@@ -12,13 +12,15 @@ The model implements:
 
 from datetime import date
 from decimal import Decimal
-from typing import List, Optional, Self
+from typing import Dict, FrozenSet, List, Optional, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.infrastructure.aeat.models.suministro_informacion import (
+    CalificacionOperacionType,
     ClaveTipoFacturaType,
     ClaveTipoRectificativaType,
+    ImpuestoType,
 )
 
 from .especiales import Especial
@@ -185,7 +187,7 @@ class FacturaInput(BaseModel):
 
         # 4) impuestos/recargo validaciones por linea
         for ln in self.lineas:
-            if getattr(ln, "operacion_exenta", None) == "S":  # TODO: REVISAR EXENTA
+            if ln.operacion_exenta is not None:
                 if (
                     getattr(ln, "tipo_impositivo", None)
                     or getattr(ln, "cuota_repercutida", None)
@@ -209,5 +211,143 @@ class FacturaInput(BaseModel):
         # 6) fecha_expedicion not future
         if self.fecha_expedicion > date.today():
             raise ValueError("FechaExpedicion no puede ser futura")
+
+        # 7) fecha_expedicion >= 28/10/2024
+        min_fecha = date(2024, 10, 28)
+        if self.fecha_expedicion < min_fecha:
+            raise ValueError(
+                f"FechaExpedicion no puede ser anterior a {min_fecha.isoformat()}"
+            )
+        # 8) serie: ASCII 32..126 and forbidden chars
+        forbidden = {'"', "'", "<", ">", "="}
+        if any(ord(ch) < 32 or ord(ch) > 126 for ch in self.serie):
+            raise ValueError(
+                "Serie contiene caracteres no imprimibles (ASCII fuera 32-126)"
+            )
+        if any(ch in forbidden for ch in self.serie):
+            raise ValueError("Serie no puede contener los caracteres: \" ' < > =")
+
+        # 9) fecha_expedicion vs fecha_operacion según impuesto/clave_regimen
+        # derive impuesto_effectivo and claves_regimen_presentes from lineas
+        impuestos = {getattr(ln, "impuesto", None) for ln in self.lineas}
+        claves = {getattr(ln, "clave_regimen", None) for ln in self.lineas}
+        # treat missing impuesto as IVA ("01")
+        impuesto_is_iva_igic = any(i in (None, "01", "03") for i in impuestos)
+        clave_excepcion = any(k in ("14", "15") for k in claves)
+
+        if self.fecha_operacion:
+            if impuesto_is_iva_igic and not clave_excepcion:
+                if self.fecha_expedicion < self.fecha_operacion:
+                    raise ValueError(
+                        "Para IVA/IGIC (o sin indicación) FechaExpedicion no puede"
+                        " ser anterior a FechaOperacion salvo ClaveRegimen 14/15"
+                    )
+        return self
+
+    @model_validator(mode="after")
+    def _valida_tipos_impositivo_y_recargo_equivalencia(self) -> Self:
+        from datetime import date
+
+        # --- constantes de negocio ---
+        FECHA_31_DIC_2022 = date(2022, 12, 31)
+        FECHA_30_SEP_2024 = date(2024, 9, 30)
+
+        # ---------- única fuente de valores ----------
+        _RAW_TI = ("0", "2", "4", "5", "7.5", "10", "21")  # tipo impositivo
+        _RAW_R5 = ("0.5", "0.62")  # recargos 5 según fecha
+        _RAW_RECARGOS = _RAW_R5 + (
+            "0",
+            "0.26",
+            "1",
+            "1.4",
+            "1.75",
+            "5.2",
+        )  # todos los recargos
+
+        # conjuntos reutilizables
+        TIPOS_IMPOSITIVOS_OK: FrozenSet[Decimal] = frozenset(map(Decimal, _RAW_TI))
+        RECARGOS_S1: FrozenSet[Decimal] = frozenset(map(Decimal, _RAW_RECARGOS))
+
+        # recargos fijos por tipo (sin ventana)
+        RECARGO_FIJO: Dict[Decimal, FrozenSet[Decimal]] = {
+            Decimal("21"): frozenset(map(Decimal, ("5.2", "1.75"))),
+            Decimal("10"): frozenset(map(Decimal, ("1.4",))),
+            Decimal("7.5"): frozenset(map(Decimal, ("1",))),
+            Decimal("4"): frozenset(map(Decimal, ("0.5",))),
+            Decimal("2"): frozenset(map(Decimal, ("0.26",))),
+            Decimal("0"): frozenset(map(Decimal, ("0",))),
+        }
+
+        # recargos para tipo 5 según fecha
+        def recargos_tipo5(fecha: date) -> frozenset[Decimal]:
+            if fecha <= FECHA_31_DIC_2022:
+                return frozenset((Decimal("0.5"),))
+            if fecha <= FECHA_30_SEP_2024:
+                return frozenset((Decimal("0.62"),))
+            return frozenset((Decimal("0.62"),))  # post 30-09-2024
+
+        # --- lógica ---
+        fecha_efectiva = self.fecha_operacion or self.fecha_expedicion
+
+        for ln in self.lineas:
+            ti = ln.tipo_impositivo
+            tr = ln.tipo_recargo_equivalencia
+            imp = ln.impuesto or "01"  # si no viene se considera IVA
+            calif = ln.calificacion_operacion
+            bcoste = ln.base_imponible_a_coste
+
+            # 1. tipo_impositivo obligatorio si S1 y sin base_imponible_a_coste
+            if calif == CalificacionOperacionType.S1 and bcoste is None and ti is None:
+                raise ValueError(
+                    "tipo_impositivo es obligatorio cuando calificacion_operacion='S1' "
+                    "y base_imponible_a_coste no está cumplimentado."
+                )
+
+            # 2. valores permitidos si impuesto = 01 (IVA)
+            if (
+                imp == ImpuestoType.VALUE_01
+                and ti is not None
+                and ti not in TIPOS_IMPOSITIVOS_OK
+            ):
+                raise ValueError(
+                    f"tipo_impositivo no permitido para IVA: {ti}. "
+                    f"Válidos: {sorted(map(str, TIPOS_IMPOSITIVOS_OK))}"
+                )
+
+            # 3. validar recargo
+            if tr is None:
+                continue
+
+            # 3.a regla general S1 + IVA/IGIC
+            if (
+                imp in {ImpuestoType.VALUE_01, ImpuestoType.VALUE_03}
+                and calif == CalificacionOperacionType.S1
+                and tr not in RECARGOS_S1
+            ):
+                raise ValueError(
+                    f"TipoRecargoEquivalencia {tr} no permitido para IVA/IGIC S1. "
+                    f"Válidos: {sorted(map(str, RECARGOS_S1))}"
+                )
+
+            # 3.b por tipo_impositivo
+            if ti is None:
+                continue
+
+            # elegir lista permitida
+            if ti == Decimal("5"):
+                if fecha_efectiva is None:
+                    raise ValueError(
+                        "Se requiere fecha_operacion/fecha_expedicion para validar "
+                        "recargo con tipo_impositivo 5"
+                    )
+                permitidos = recargos_tipo5(fecha_efectiva)
+            else:
+                permitidos = RECARGO_FIJO.get(ti, frozenset())
+
+            if tr not in permitidos:
+                raise ValueError(
+                    f"Para tipo_impositivo {ti} solo se permiten "
+                    f"{', '.join(map(str, permitidos))} en TipoRecargoEquivalencia"
+                )
 
         return self

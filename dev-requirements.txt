@@ -10,3 +10,6 @@ isort>=7.0.0
 flake8>=7.3.0
 mypy>=1.18.2
 pre-commit>=4.4.0
+
+# Stubs
+types-requests==2.32.4.20250913

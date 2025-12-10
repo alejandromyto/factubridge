@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from app.models import Base
+from app.domain.models.models import Base
 
 # Cargar variables desde .env en la raíz del proyecto
 load_dotenv()

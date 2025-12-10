@@ -32,7 +32,8 @@ repos:
         args: [
           "--max-line-length=88",
           # Ignorar docstrings para ahora
-          "--ignore=B008,D100,D101,D102,D103,D104,D105,D106,D107,D400,D401",
+          # y app/tasks/decorators.py:9:5: E704 multiple statements on one line (def)
+          "--ignore=B008,E704,D100,D101,D102,D103,D104,D105,D106,D107,D400,D401",
           "--per-file-ignores=app/aeat/models/*.py:E501,D205,D200,E741",
         ]
         exclude: '^app/infrastructure/aeat/models/.*$'
@@ -50,6 +51,7 @@ repos:
           - fastapi==0.121.2
           - alembic==1.17.2
           - slowapi==0.1.9
+          - types-requests==2.32.4.20250913
     #    args: [--ignore-missing-imports, --follow-imports=silent]
 
   - repo: https://github.com/PyCQA/autoflake

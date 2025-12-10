@@ -71,5 +71,5 @@ xsdata[cli]>=25.7,<26.0
 # Templates
 jinja2>=3.1.6
 
-# Monitorización (opcional al inicio)
+# Monitorización
 sentry-sdk[fastapi]>=2.44.0,<3.0

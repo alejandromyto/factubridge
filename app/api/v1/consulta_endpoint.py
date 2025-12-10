@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.schemas import ErrorResponse, HealthOut, RegistroEstado, RegistroOut
 from app.config.settings import settings
-from app.domain.models.aeat_models import InstalacionSIF, RegistroFacturacion
+from app.domain.models.models import InstalacionSIF, RegistroFacturacion
 from app.infrastructure.database import get_db
 from app.infrastructure.security.auth import verificar_api_key
 
@@ -76,8 +76,8 @@ async def consultar_estado_registro(
         estado=estado_api,
         url=registro.qr_data,
         qr=None,  # No devolver QR en consultas (para ahorrar bandwidth)
-        codigo_error=registro.codigo_error,
-        mensaje_error=registro.mensaje_error,
+        codigo_error=registro.aeat_codigo_error,
+        mensaje_error=registro.aeat_descripcion_error,
         estado_registro_duplicado=None,
     )
 
