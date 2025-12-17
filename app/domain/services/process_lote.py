@@ -6,12 +6,13 @@ Servicio para procesamiento completo de lotes de envío a AEAT.
 Responsabilidades:
 - Generar XML de envío Veri*factu
 - Enviar a AEAT (POST con certificado)
-- Procesar respuesta (tiempo 't', estados)
+- Procesar respuesta (aplicar lógica de negocio)
 - Actualizar instalación (control de flujo)
 - Actualizar estados de registros
 """
 
 import logging
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
@@ -24,7 +25,11 @@ from app.domain.models.models import (
     RegistroFacturacion,
 )
 from app.infrastructure.aeat.models.respuesta_suministro import EstadoEnvioType
-from app.infrastructure.aeat.response_parser import ResultadoProcesamiento
+from app.infrastructure.aeat.response_parser import (
+    ResultadoProcesamiento,
+    ResultadoRegistroError,
+    ResultadoRegistroOK,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +40,13 @@ class ProcessLoteService:
     """
     Servicio para procesamiento de lotes a AEAT.
 
-    CRÍTICO para control de flujo:
-    - Actualizar instalacion.ultimo_envio_at
-    - Actualizar instalacion.ultimo_tiempo_espera
+    RESPONSABILIDAD: Lógica de negocio y persistencia
+    - Generar XML
+    - Enviar a AEAT
+    - Aplicar resultados a la BD
+    - Actualizar control de flujo
+
+    NO interpreta XML (eso lo hace AEATResponseParser)
     """
 
     def __init__(self, db: Session):
@@ -45,7 +54,7 @@ class ProcessLoteService:
 
     def procesar_lote(self, lote: LoteEnvio) -> ResultadoProcesamiento:
         """
-        Procesa un lote completo: XML → AEAT → Actualizar.
+        Procesa un lote completo: XML → AEAT → Actualizar BD.
 
         Args:
             lote: Lote a procesar (debe tener registros asociados)
@@ -70,10 +79,11 @@ class ProcessLoteService:
             if not registros:
                 return ResultadoProcesamiento(
                     exitoso=False,
-                    tiempo_espera=TIEMPO_ESPERA_DEFAULT,  # Espera antes de reintentar
+                    tiempo_espera_segundos=TIEMPO_ESPERA_DEFAULT,
                     estado_envio=EstadoEnvioType.INCORRECTO,
-                    error="Lote sin registros asociados",
+                    error_parseo="Lote sin registros asociados",
                 )
+
             logger.info(f"Lote {lote.id}: {len(registros)} registros para procesar")
 
             # PASO 2: Generar XML de envío
@@ -83,32 +93,31 @@ class ProcessLoteService:
             lote.xml_enviado = xml_envio
             self.db.flush()
 
-            logger.info(f"XML generado para lote {lote.id} ")
+            logger.info(f"XML generado para lote {lote.id}")
 
-            # PASO 3: Enviar a AEAT
-            respuesta_aeat = self._enviar_a_aeat(lote, xml_envio)
+            # PASO 3: Enviar a AEAT y parsear respuesta
+            resultado = self._enviar_a_aeat(lote, xml_envio)
 
-            if not respuesta_aeat.exitoso:
-                # Error en envío: marcar registros como ERROR
-                self._marcar_registros_error(
-                    lote, respuesta_aeat.error or "Error desconocido"
-                )
-                return respuesta_aeat
+            if not resultado.exitoso:
+                # Error en envío o parseo: marcar registros como ERROR
+                error = resultado.error_parseo or "Error desconocido"
+                self._marcar_todos_registros_error(lote, error)
+                return resultado
 
-            # PASO 4: Procesar respuesta exitosa
-            self._procesar_respuesta_exitosa(lote, respuesta_aeat)
+            # PASO 4: Aplicar resultados a la BD
+            self._aplicar_resultados_a_bd(lote, resultado)
 
             # PASO 5: ✅ CRÍTICO - Actualizar instalación (control de flujo)
             self._actualizar_instalacion_control_flujo(
-                lote, respuesta_aeat.tiempo_espera or TIEMPO_ESPERA_DEFAULT
+                lote, resultado.tiempo_espera_segundos or TIEMPO_ESPERA_DEFAULT
             )
 
             logger.info(
                 f"✅ Lote {lote.id} procesado exitosamente. "
-                f"Tiempo espera AEAT: {respuesta_aeat.tiempo_espera}s"
+                f"Tiempo espera AEAT: {resultado.tiempo_espera_segundos}s"
             )
 
-            return respuesta_aeat
+            return resultado
 
         except Exception as e:
             logger.error(f"❌ Error procesando lote {lote.id}: {e}", exc_info=True)
@@ -146,12 +155,11 @@ class ProcessLoteService:
 
     def _enviar_a_aeat(self, lote: LoteEnvio, xml_envio: str) -> ResultadoProcesamiento:
         """
-        Envía el XML a AEAT y procesa la respuesta.
+        Envía el XML a AEAT y devuelve el resultado parseado.
 
-        Usa AEATClient para HTTP y AEATResponseParser para XML.
+        Usa AEATClient para HTTP y AEATResponseParser para parsear.
         """
         try:
-            # ✅ Usar cliente AEAT de infraestructura
             from app.infrastructure.aeat.client import AEATClient
             from app.infrastructure.aeat.response_parser import (
                 parsear_respuesta_verifactu,
@@ -168,28 +176,29 @@ class ProcessLoteService:
             respuesta_http = client.enviar_xml(xml_envio)
 
             if not respuesta_http.exitoso:
-                # Error HTTP (4xx)
+                # Error HTTP (4xx, 5xx)
                 return ResultadoProcesamiento(
                     exitoso=False,
-                    tiempo_espera=TIEMPO_ESPERA_DEFAULT,
+                    tiempo_espera_segundos=TIEMPO_ESPERA_DEFAULT,
                     estado_envio=EstadoEnvioType.INCORRECTO,
-                    # codigo_respuesta=str(respuesta_http.status_code),
-                    error=respuesta_http.error,
+                    error_parseo=respuesta_http.error,
                 )
+
             if not respuesta_http.xml_respuesta:
                 return ResultadoProcesamiento(
                     exitoso=False,
-                    tiempo_espera=TIEMPO_ESPERA_DEFAULT,
+                    tiempo_espera_segundos=TIEMPO_ESPERA_DEFAULT,
                     estado_envio=EstadoEnvioType.INCORRECTO,
-                    error="Respuesta HTTP vacía: no se recibió XML de AEAT",
+                    error_parseo="Respuesta HTTP vacía: no se recibió XML de AEAT",
                 )
-            # Parsear respuesta XML
+
+            # ✅ Parsear respuesta XML (el parser hace TODA la interpretación)
             resultado = parsear_respuesta_verifactu(respuesta_http.xml_respuesta)
 
             logger.info(
                 f"Respuesta AEAT para lote {lote.id}: "
-                # f"código={resultado.codigo_respuesta}, "
-                f"tiempo_espera={resultado.tiempo_espera}s"
+                f"tiempo_espera={resultado.tiempo_espera_segundos}s, "
+                f"estado={resultado.estado_envio}"
             )
 
             return resultado
@@ -200,113 +209,138 @@ class ProcessLoteService:
             logger.error(error_msg, exc_info=True)
             raise
 
-    def _parsear_respuesta_aeat(self, xml_respuesta: str) -> ResultadoProcesamiento:
-        """
-        Parsea la respuesta XML de AEAT.
-
-        Delegado a response_parser.py (ya no se usa aquí directamente).
-        """
-        # Este método ya no se llama, pero lo dejamos por compatibilidad
-        from app.infrastructure.aeat.response_parser import parsear_respuesta_verifactu
-
-        return parsear_respuesta_verifactu(xml_respuesta)
-
-    def _procesar_respuesta_exitosa(
-        self, lote: LoteEnvio, respuesta: ResultadoProcesamiento
+    def _aplicar_resultados_a_bd(
+        self, lote: LoteEnvio, resultado: ResultadoProcesamiento
     ) -> None:
         """
-        Procesa una respuesta exitosa de AEAT.
+        Aplica los resultados del parseo a la base de datos.
 
-        - Actualiza estado del lote
-        - Actualiza tiempo de espera recibido
-        - Actualiza estados de CADA registro según respuesta AEAT
+        RESPONSABILIDAD: Lógica de negocio
+        - Actualizar estado del lote
+        - Actualizar estados de registros según resultado
+        - Guardar metadata (CSV, tiempo de espera)
+        """
+        ahora = datetime.now(timezone.utc)
+
+        # Actualizar lote
+        lote.tiempo_espera_recibido = resultado.tiempo_espera_segundos
+        lote.proximo_envio_permitido_at = ahora + timedelta(
+            seconds=resultado.tiempo_espera_segundos or TIEMPO_ESPERA_DEFAULT
+        )
+        lote.csv_aeat = resultado.csv
+        self.db.flush()
+
+        # ✅ Aplicar resultados a registros OK
+        for reg_ok in resultado.registros_ok:
+            self._aplicar_registro_ok(reg_ok)
+
+        # ✅ Aplicar resultados a registros ERROR
+        for reg_error in resultado.registros_error:
+            self._aplicar_registro_error(reg_error)
+
+        logger.info(
+            f"Lote {lote.id}: "
+            f"{resultado.registros_correctos}/{resultado.total_registros} correctos, "
+            f"{resultado.registros_incorrectos} rechazados"
+        )
+
+    def _aplicar_registro_ok(self, reg_ok: ResultadoRegistroOK) -> None:
+        """
+        Aplica resultado OK a un registro.
+
+        LÓGICA DE NEGOCIO: Define qué estado asignar según la respuesta.
         """
         from app.infrastructure.aeat.models.respuesta_suministro import (
             EstadoRegistroType,
         )
 
-        ahora = datetime.now(timezone.utc)
+        try:
+            registro_id = uuid.UUID(reg_ok.ref_externa)
 
-        # Actualizar lote
-        lote.tiempo_espera_recibido = respuesta.tiempo_espera
-        lote.proximo_envio_permitido_at = ahora + timedelta(
-            seconds=respuesta.tiempo_espera or TIEMPO_ESPERA_DEFAULT
-        )
-        lote.csv_aeat = respuesta.csv
-        self.db.flush()
+            # Determinar nuevo estado según tipo
+            if reg_ok.estado == EstadoRegistroType.CORRECTO:
+                nuevo_estado = EstadoRegistroFacturacion.CORRECTO
+            elif reg_ok.estado == EstadoRegistroType.ACEPTADO_CON_ERRORES:
+                nuevo_estado = EstadoRegistroFacturacion.ACEPTADO_CON_ERRORES
+            else:
+                # No debería pasar (el parser ya filtró)
+                logger.warning(f"Estado inesperado en registro OK: {reg_ok.estado}")
+                nuevo_estado = EstadoRegistroFacturacion.CORRECTO
 
-        # ✅ CRÍTICO: Actualizar estado de CADA registro según respuesta
-        if respuesta.lineas:
-            for resultado_reg in respuesta.lineas:
-                # RefExterna debería ser el ID del RegistroFacturacion
-                # Si no usas RefExterna, necesitas otro mecanismo de matching
-                if resultado_reg.ref_externa:
-                    try:
-                        registro_id = int(resultado_reg.ref_externa)
+            # Serializar respuesta XML (si está disponible)
+            xml_respuesta_aeat = None
+            if reg_ok.xml_linea_respuesta:
+                xml_respuesta_aeat = reg_ok.xml_linea_respuesta
 
-                        # Determinar nuevo estado
-                        if resultado_reg.estado_registro == EstadoRegistroType.CORRECTO:
-                            nuevo_estado = EstadoRegistroFacturacion.CORRECTO
-                        elif (
-                            resultado_reg.estado_registro
-                            == EstadoRegistroType.ACEPTADO_CON_ERRORES
-                        ):
-                            nuevo_estado = (
-                                EstadoRegistroFacturacion.ACEPTADO_CON_ERRORES
-                            )
-                        elif (
-                            resultado_reg.estado_registro
-                            == EstadoRegistroType.INCORRECTO
-                        ):
-                            nuevo_estado = EstadoRegistroFacturacion.INCORRECTO
-                        else:
-                            nuevo_estado = EstadoRegistroFacturacion.ERROR_SERVIDOR_AEAT
-                        # Actualizar registro
-                        self.db.execute(
-                            update(RegistroFacturacion)
-                            .where(RegistroFacturacion.id == registro_id)
-                            .values(estado=nuevo_estado)
-                        )
+            # Actualizar registro
+            self.db.execute(
+                update(RegistroFacturacion)
+                .where(RegistroFacturacion.id == registro_id)
+                .values(estado=nuevo_estado, xml_respuesta_aeat=xml_respuesta_aeat)
+            )
 
-                        if (
-                            nuevo_estado
-                            == EstadoRegistroFacturacion.ERROR_SERVIDOR_AEAT
-                        ):
-                            logger.warning(
-                                f"Registro {registro_id} marcado como ERROR: "
-                                f"{resultado_reg.descripcion_error_registro}"
-                            )
-                    except (ValueError, TypeError) as e:
-                        logger.error(
-                            f"Error en RefExterna '{resultado_reg.ref_externa}': {e}"
-                        )
-        # else:
-        #     # Fallback: sin detalle por registro, marcar todos según estado global
-        #     logger.warning(
-        #         f"Respuesta AEAT sin detalle por registro. "
-        #         f"Marca todos con ENVIADO por estado global: {respuesta.estado_envio}"
-        #     )
-        #     self.db.execute(
-        #         update(RegistroFacturacion)
-        #         .where(RegistroFacturacion.lote_envio_id == lote.id)
-        #         .values(estado=EstadoRegistroFacturacion.ENVIADO)
-        #     )
+            logger.debug(f"Registro {registro_id} → {nuevo_estado.value}")
 
-        # logger.info(
-        #     f"Lote {lote.id}: "
-        #     f"{respuesta.registros_correctos}/{respuesta.total_registros} "
-        #     f"registros correctos, {respuesta.registros_incorrectos} rechazados"
-        # )
+        except (ValueError, TypeError) as e:
+            logger.error(f"Error procesando registro OK '{reg_ok.ref_externa}': {e}")
 
-    def _marcar_registros_error(self, lote: LoteEnvio, error: str) -> None:
-        """Marca los registros del lote como ERROR."""
+    def _aplicar_registro_error(self, reg_error: ResultadoRegistroError) -> None:
+        """
+        Aplica resultado ERROR a un registro.
+
+        LÓGICA DE NEGOCIO: Marcar como INCORRECTO y loguear detalles.
+        """
+        try:
+            registro_id = uuid.UUID(reg_error.ref_externa)
+
+            # Siempre INCORRECTO (fue rechazado por AEAT)
+            nuevo_estado = EstadoRegistroFacturacion.INCORRECTO
+
+            # Serializar respuesta XML (si está disponible)
+            xml_respuesta_aeat = None
+            if reg_error.xml_linea_respuesta:
+                xml_respuesta_aeat = reg_error.xml_linea_respuesta
+
+            # Actualizar registro
+            self.db.execute(
+                update(RegistroFacturacion)
+                .where(RegistroFacturacion.id == registro_id)
+                .values(estado=nuevo_estado, xml_respuesta_aeat=xml_respuesta_aeat)
+            )
+
+            # Log detallado
+            if reg_error.es_duplicado:
+                logger.warning(
+                    f"Registro {registro_id} RECHAZADO por DUPLICADO: "
+                    f"id_original={reg_error.id_duplicado}"
+                )
+            else:
+                logger.warning(
+                    f"Registro {registro_id} RECHAZADO: "
+                    f"código={reg_error.codigo_error}, "
+                    f"error={reg_error.descripcion_error}"
+                )
+
+        except (ValueError, TypeError) as e:
+            logger.error(
+                f"Error procesando registro ERROR '{reg_error.ref_externa}': {e}"
+            )
+
+    def _marcar_todos_registros_error(self, lote: LoteEnvio, error: str) -> None:
+        """
+        Marca todos los registros del lote como ERROR.
+
+        Usar cuando falla el envío completo (antes de tener respuesta de AEAT).
+        """
         self.db.execute(
             update(RegistroFacturacion)
             .where(RegistroFacturacion.lote_envio_id == lote.id)
             .values(estado=EstadoRegistroFacturacion.ERROR_SERVIDOR_AEAT)
         )
 
-        logger.warning(f"Registros del lote {lote.id} marcados como ERROR: {error}")
+        logger.warning(
+            f"Todos los registros del lote {lote.id} marcados como ERROR: {error}"
+        )
 
     def _actualizar_instalacion_control_flujo(
         self, lote: LoteEnvio, tiempo_espera: int
@@ -336,16 +370,6 @@ class ProcessLoteService:
             f"ultimo_envio_at={ahora.isoformat()}, "
             f"ultimo_tiempo_espera={tiempo_espera}s"
         )
-
-    def _get_url_aeat(self, instalacion: InstalacionSIF) -> str | None:
-        """DEPRECATED: Movido a AEATClient.Mantener por compatibilidad."""
-        from app.infrastructure.aeat.client import AEATClient
-
-        return AEATClient.URLS.get("pruebas")
-
-    def _get_certificado_path(self, instalacion: InstalacionSIF) -> tuple[str, str]:
-        """DEPRECATED: Movido a AEATClient.        Mantener por compatibilidad."""
-        return ("/path/to/cert.pem", "/path/to/key.pem")
 
 
 def procesar_lote(lote: LoteEnvio, db: Session) -> ResultadoProcesamiento:

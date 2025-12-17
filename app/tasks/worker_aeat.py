@@ -53,8 +53,9 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
        - lote.proximo_envio_permitido_at
        - instalacion.ultimo_envio_at = now()
        - instalacion.ultimo_tiempo_espera = tiempo_t
-    5. Marcar evento outbox como 'procesado'
-    6. COMMIT
+    5. Actualizar estados de registros según respuesta
+    6. Marcar evento outbox como 'procesado'
+    7. COMMIT
 
     CRÍTICO: Los campos de instalación controlan el próximo envío.
 
@@ -79,7 +80,9 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
             db.commit()
             return  # No reintentar si no existe
 
+        # Actualizar estado a ENVIANDO
         lote.estado = EstadoLoteEnvio.ENVIANDO
+        db.flush()
 
         logger.info(
             f"Lote {lote_id}: instalación {lote.instalacion_sif_id}, "
@@ -87,49 +90,63 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         )
 
         # PASO 2-5: Procesar lote completo
+        # ProcessLoteService se encarga de:
+        # - Generar XML
+        # - Enviar a AEAT
+        # - Parsear respuesta
+        # - Actualizar BD (lote, registros, instalación)
         from app.domain.services.process_lote import procesar_lote
 
         resultado = procesar_lote(lote, db)
 
-        # procesar_lote debe:
-        # 1. Generar XML (lote.xml_enviado)
-        # 2. Enviar a AEAT
-        # 3. Procesar respuesta:
-        #    - lote.tiempo_espera_recibido = tiempo_t_recibido
-        #    - lote.proximo_envio_permitido_at = now() + tiempo_t
-        # 4. Actualizar estados de registros
-        # 5. ✅ CRÍTICO: Actualizar instalación
-
+        # Verificar si fue exitoso
         if not resultado.exitoso:
-            raise Exception(f"Error en procesamiento AEAT: {resultado.error}")
+            # Construir mensaje de error descriptivo
+            error_msg = resultado.error_parseo or "Error desconocido"
 
-        # PLACEHOLDER: Simulación por ahora
-        logger.info(f"🔄 Lote {lote_id} listo para envío a AEAT")
+            if resultado.mensaje_resumen:
+                error_msg = f"{resultado.mensaje_resumen}: {error_msg}"
 
-        # TODO: Cuando implementes process_lote, descomentar esto:
-        # from app.services.process_lote import procesar_lote
-        # resultado = procesar_lote(lote, db)
+            # Si hay registros con error, incluir algunos ejemplos
+            if resultado.registros_error:
+                ejemplos = []
+                for reg_err in resultado.registros_error[:3]:  # Primeros 3
+                    if reg_err.es_duplicado:
+                        ejemplos.append(f"Registro {reg_err.ref_externa}: DUPLICADO")
+                    else:
+                        ejemplos.append(
+                            f"Registro {reg_err.ref_externa}: "
+                            f"{reg_err.codigo_error} - {reg_err.descripcion_error}"
+                        )
 
-        # PASO CRÍTICO: Actualizar instalación (controla próximo envío)
-        # TODO: Esto debería estar dentro de process_lote.procesar_lote()
-        """
-        tiempo_espera_recibido = resultado.tiempo_espera  # De respuesta AEAT
+                if ejemplos:
+                    error_msg += f". Ejemplos: {'; '.join(ejemplos)}"
 
-        db.execute(
-            update(InstalacionSIF)
-            .where(InstalacionSIF.id == lote.instalacion_sif_id)
-            .values(
-                ultimo_envio_at=datetime.now(timezone.utc),
-                ultimo_tiempo_espera=tiempo_espera_recibido,
-            )
-        )
+            # Actualizar estado del lote según el tipo de error
+            # Si es error de parseo/comunicación, es ERROR
+            lote.estado = EstadoLoteEnvio.ERROR
+            db.flush()
+
+            raise Exception(f"Error en procesamiento AEAT: {error_msg}")
+
+        # Éxito: actualizar estado del lote según respuesta AEAT
+        from app.infrastructure.aeat.models.respuesta_suministro import EstadoEnvioType
+
+        if resultado.estado_envio == EstadoEnvioType.CORRECTO:
+            lote.estado = EstadoLoteEnvio.CORRECTO
+        elif resultado.estado_envio == EstadoEnvioType.PARCIALMENTE_CORRECTO:
+            lote.estado = EstadoLoteEnvio.PARCIALMENTE_CORRECTO
+        elif resultado.estado_envio == EstadoEnvioType.INCORRECTO:
+            lote.estado = EstadoLoteEnvio.INCORRECTO
+        else:
+            # Fallback por si AEAT devuelve algo inesperado
+            lote.estado = EstadoLoteEnvio.ERROR
+
+        db.flush()
 
         logger.info(
-            f"✅ Instalación {lote.instalacion_sif_id} actualizada: "
-            f"ultimo_envio_at={datetime.now(timezone.utc)}, "
-            f"ultimo_tiempo_espera={tiempo_espera_recibido}s"
+            f"✅ Lote {lote_id} procesado exitosamente: {resultado.mensaje_resumen}"
         )
-        """
 
         # PASO 6: Marcar evento como procesado
         servicio_outbox = OutboxService(db)
@@ -142,6 +159,20 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
             f"✅ Lote {lote_id} completado exitosamente "
             f"(evento {evento_id} marcado como procesado)"
         )
+
+        # Log de estadísticas
+        logger.info(
+            f"📊 Estadísticas del lote {lote_id}: "
+            f"{resultado.registros_correctos} correctos, "
+            f"{resultado.registros_con_errores_aceptados} con warnings, "
+            f"{resultado.registros_incorrectos} rechazados"
+        )
+
+        if resultado.tiene_duplicados:
+            logger.warning(
+                f"⚠️ Lote {lote_id} tiene {len(resultado.registros_duplicados)} "
+                f"registros duplicados"
+            )
 
     except SQLAlchemyError as e:
         # Error de BD: rollback y reintentar
@@ -162,15 +193,69 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
             exc_info=True,
         )
 
-        # TODO: Distinguir entre errores retryables y no retryables
-        # Retryables: timeout, conexión, Redis caído, 5xx AEAT
-        # NO retryables: XML inválido, 4xx AEAT, validación rechazada
+        # Distinguir entre errores retryables y no retryables
+        error_str = str(e).lower()
 
-        # Por ahora, reintentar todos
+        # Errores NO retryables (problemas de validación o negocio)
+        errores_no_retryables = [
+            "lote sin registros",
+            "xml inválido",
+            "validación rechazada",
+        ]
+
+        es_no_retryable = any(err in error_str for err in errores_no_retryables)
+
+        # Errores retryables: timeout, conexión, 5xx de AEAT
+        errores_retryables = [
+            "timeout",
+            "connection",
+            "502",
+            "503",
+            "504",
+        ]
+
+        es_retryable = any(err in error_str for err in errores_retryables)
+
+        if es_no_retryable:
+            # No reintentar, marcar como error permanente
+            logger.warning(f"⚠️ Error no retryable en lote {lote_id}: {e}")
+
+            # Actualizar estado del lote
+            lote = db.get(LoteEnvio, lote_id)
+            if lote:
+                lote.estado = EstadoLoteEnvio.ERROR
+                db.flush()
+
+            servicio_outbox = OutboxService(db)
+            servicio_outbox.marcar_error(
+                evento_id, f"Error no retryable: {str(e)[:500]}"
+            )
+            db.commit()
+            return  # No propagar excepción (no reintentar)
+
+        # Errores retryables (timeout, conexión, 5xx, etc.)
         if self.request.retries < self.max_retries:
+            logger.warning(
+                f"🔄 Reintentando lote {lote_id} "
+                f"(intento {self.request.retries + 1}/{self.max_retries})"
+            )
+
+            # Actualizar estado del lote si es 5xx de AEAT
+            if es_retryable:
+                lote = db.get(LoteEnvio, lote_id)
+                if lote:
+                    lote.estado = EstadoLoteEnvio.ERROR_REINTENTABLE
+                    db.flush()
+                    db.commit()
+
             raise self.retry(exc=e)
         else:
-            # Máximo de reintentos alcanzado: marcar como error
+            # Máximo de reintentos alcanzado: marcar como error permanente
+            lote = db.get(LoteEnvio, lote_id)
+            if lote:
+                lote.estado = EstadoLoteEnvio.ERROR
+                db.flush()
+
             servicio_outbox = OutboxService(db)
             servicio_outbox.marcar_error(
                 evento_id, f"Máximo de reintentos alcanzado: {str(e)[:500]}"

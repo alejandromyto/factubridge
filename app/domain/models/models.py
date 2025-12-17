@@ -348,7 +348,9 @@ class RegistroFacturacion(Base):
 
     # ===== COMUNICACIÓN CON AEAT =====
     xml_generado: Mapped[str | None] = mapped_column(Text)
-    xml_respuesta: Mapped[str | None] = mapped_column(Text)
+    xml_respuesta_aeat: Mapped[str | None] = mapped_column(
+        Text, comment="XML de RespuestaLinea de AEAT para este registro específico"
+    )
     respuesta_aeat: Mapped[dict | None] = mapped_column(postgresql.JSONB)
 
     intentos_envio: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

@@ -1,13 +1,14 @@
 """
 app/infrastructure/aeat/response_parser.py
 
-Parser de respuestas XML de AEAT usando modelos Pydantic generados del XSD.
-Sin DTOs intermedios: usa directamente los modelos xsdata.
+Parser de respuestas XML de AEAT.
+RESPONSABILIDAD: Interpretar XML y devolver estructuras de datos simples.
+NO conoce la BD, NO actualiza estados, NO hace lógica de negocio.
 """
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 
 from xsdata.exceptions import ParserError
 from xsdata.formats.dataclass.parsers import XmlParser
@@ -15,104 +16,143 @@ from xsdata.formats.dataclass.parsers import XmlParser
 from app.infrastructure.aeat.models.respuesta_suministro import (
     EstadoEnvioType,
     EstadoRegistroType,
-    RespuestaExpedidaType,
     RespuestaRegFactuSistemaFacturacion,
 )
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+# ============================================================================
+# MODELOS DE SALIDA DEL PARSER (sin dependencias de BD)
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class ResultadoRegistroOK:
+    """Registro procesado correctamente por AEAT."""
+
+    ref_externa: str
+    """Referencia externa (típicamente el ID del RegistroFacturacion)."""
+
+    estado: EstadoRegistroType
+    """Estado específico: CORRECTO o ACEPTADO_CON_ERRORES."""
+
+    xml_linea_respuesta: Optional[str] = None
+    """XML completo de la línea de respuesta de AEAT (para auditoría)."""
+
+
+@dataclass(frozen=True)
+class ResultadoRegistroError:
+    """Registro rechazado por AEAT."""
+
+    ref_externa: str
+    """Referencia externa (típicamente el ID del RegistroFacturacion)."""
+
+    codigo_error: Optional[str] = None
+    """Código de error de AEAT."""
+
+    descripcion_error: Optional[str] = None
+    """Descripción del error de AEAT."""
+
+    es_duplicado: bool = False
+    """Indica si el rechazo fue por registro duplicado."""
+
+    id_duplicado: Optional[str] = None
+    """ID de la petición original (si es duplicado)."""
+
+    xml_linea_respuesta: Optional[str] = None
+    """XML completo de la línea de respuesta de AEAT (para auditoría)."""
+
+
+@dataclass(frozen=True)
 class ResultadoProcesamiento:
     """
-    Resultado del procesamiento de un lote completo.
+    Resultado del parseo de una respuesta AEAT.
 
-    Usa directamente los modelos Pydantic de xsdata (sin DTOs intermedios).
+    IMPORTANTE: Este modelo solo contiene datos parseados del XML.
+    NO contiene lógica de negocio ni referencias a la BD.
     """
 
     exitoso: bool
-    tiempo_espera: int  # Segundos para próximo envío (TiempoEsperaEnvio)
-    estado_envio: Optional[EstadoEnvioType]
-    csv: Optional[str] = None  # Código Seguro de Verificación
+    """Indica si el envío fue exitoso (CORRECTO o PARCIALMENTE_CORRECTO)."""
 
-    # ✅ Lista de respuestas por registro (modelos Pydantic directos)
-    lineas: List[RespuestaExpedidaType] = field(default_factory=list)
+    tiempo_espera_segundos: Optional[int]
+    """Segundos que AEAT indica esperar antes del próximo envío."""
+
+    estado_envio: Optional[EstadoEnvioType]
+    """Estado global del envío según AEAT."""
+
+    csv: Optional[str] = None
+    """Código Seguro de Verificación de AEAT."""
+
+    registros_ok: list[ResultadoRegistroOK] = field(default_factory=list)
+    """Registros procesados correctamente (CORRECTO o ACEPTADO_CON_ERRORES)."""
+
+    registros_error: list[ResultadoRegistroError] = field(default_factory=list)
+    """Registros rechazados (INCORRECTO)."""
 
     # Metadata
-    mensaje: Optional[str] = None
-    error: Optional[str] = None
-    respuesta_raw: Optional[str] = None
+    mensaje_resumen: Optional[str] = None
+    """Resumen legible del procesamiento."""
+
+    error_parseo: Optional[str] = None
+    """Error durante el parseo (si exitoso=False por error de parseo)."""
+
+    xml_raw: Optional[str] = None
+    """XML original para auditoría."""
 
     # ========================================================================
-    # PROPERTIES DERIVADAS (sin duplicar datos)
+    # PROPERTIES DERIVADAS (solo cálculos sobre datos ya existentes)
     # ========================================================================
 
     @property
     def total_registros(self) -> int:
         """Total de registros procesados."""
-        return len(self.lineas)
+        return len(self.registros_ok) + len(self.registros_error)
 
     @property
     def registros_correctos(self) -> int:
         """Registros con estado CORRECTO."""
         return sum(
-            1
-            for linea in self.lineas
-            if linea.estado_registro == EstadoRegistroType.CORRECTO
+            1 for r in self.registros_ok if r.estado == EstadoRegistroType.CORRECTO
         )
 
     @property
-    def registros_con_errores(self) -> int:
+    def registros_con_errores_aceptados(self) -> int:
         """Registros con estado ACEPTADO_CON_ERRORES."""
         return sum(
             1
-            for linea in self.lineas
-            if linea.estado_registro == EstadoRegistroType.ACEPTADO_CON_ERRORES
+            for r in self.registros_ok
+            if r.estado == EstadoRegistroType.ACEPTADO_CON_ERRORES
         )
 
     @property
     def registros_incorrectos(self) -> int:
-        """Registros con estado INCORRECTO."""
-        return sum(
-            1
-            for linea in self.lineas
-            if linea.estado_registro == EstadoRegistroType.INCORRECTO
-        )
+        """Registros rechazados."""
+        return len(self.registros_error)
 
     @property
     def tiene_duplicados(self) -> bool:
-        """Indica si hay algún registro rechazado por duplicado."""
-        return any(linea.registro_duplicado is not None for linea in self.lineas)
+        """Indica si hay registros rechazados por duplicado."""
+        return any(r.es_duplicado for r in self.registros_error)
 
     @property
-    def registros_duplicados(self) -> List[RespuestaExpedidaType]:
+    def registros_duplicados(self) -> list[ResultadoRegistroError]:
         """Lista de registros rechazados por duplicado."""
-        return [linea for linea in self.lineas if linea.registro_duplicado is not None]
+        return [r for r in self.registros_error if r.es_duplicado]
 
-    def resumen(self) -> str:
-        """Genera resumen legible del procesamiento."""
-        msg = (
-            f"Envío {self.estado_envio.value if self.estado_envio else None}: "
-            f"{self.registros_correctos}/{self.total_registros} correctos"
-        )
 
-        if self.registros_con_errores > 0:
-            msg += f", {self.registros_con_errores} con errores"
-
-        if self.registros_incorrectos > 0:
-            msg += f", {self.registros_incorrectos} incorrectos"
-
-        if self.tiene_duplicados:
-            msg += f" ({len(self.registros_duplicados)} duplicados)"
-
-        return msg
+# ============================================================================
+# PARSER
+# ============================================================================
 
 
 class AEATResponseParser:
     """
     Parser de respuestas AEAT usando xsdata.
 
-    Convierte XML → Modelo Pydantic → ResultadoProcesamiento (sin DTOs intermedios)
+    RESPONSABILIDAD: XML → ResultadoProcesamiento
+    NO conoce: BD, estados, lógica de negocio
     """
 
     def __init__(self) -> None:
@@ -126,7 +166,7 @@ class AEATResponseParser:
             xml_respuesta: XML completo de AEAT (puede incluir SOAP envelope)
 
         Returns:
-            ResultadoProcesamiento con modelos Pydantic directos
+            ResultadoProcesamiento con datos parseados
 
         Raises:
             Exception: Si el XML es inválido o no se puede parsear
@@ -157,10 +197,10 @@ class AEATResponseParser:
             logger.error(error_msg, exc_info=True)
             return ResultadoProcesamiento(
                 exitoso=False,
-                tiempo_espera=120,  # Default safe
+                tiempo_espera_segundos=120,  # Default safe
                 estado_envio=EstadoEnvioType.INCORRECTO,
-                error=error_msg,
-                respuesta_raw=xml_respuesta,
+                error_parseo=error_msg,
+                xml_raw=xml_respuesta,
             )
 
     def _extraer_body_xml(self, xml_respuesta: str) -> str:
@@ -180,7 +220,7 @@ class AEATResponseParser:
                 "soap": "http://www.w3.org/2003/05/soap-envelope",
             }
 
-            for ns_uri in namespaces.items():
+            for _ns_prefix, ns_uri in namespaces.items():
                 body = root.find(f".//{{{ns_uri}}}Body")
                 if body is not None:
                     # Obtener primer hijo del Body
@@ -205,17 +245,76 @@ class AEATResponseParser:
             xml_raw: XML original para auditoría
 
         Returns:
-            ResultadoProcesamiento con modelos Pydantic directos
+            ResultadoProcesamiento con datos estructurados
         """
-        # Extraer campos de la respuesta base
+        from xsdata.formats.dataclass.serializers import XmlSerializer
+        from xsdata.formats.dataclass.serializers.config import SerializerConfig
+
+        # Extraer campos básicos
         tiempo_espera_str = respuesta.tiempo_espera_envio or "120"
         tiempo_espera = int(tiempo_espera_str)
 
         estado_envio = respuesta.estado_envio
         csv = respuesta.csv
 
-        # ✅ Usar directamente las líneas (RespuestaExpedidaType)
+        # Configurar serializador para XML limpio
+        config = SerializerConfig(pretty_print=True)
+        serializer = XmlSerializer(config=config)
+
+        # Clasificar registros según su estado
+        registros_ok: list[ResultadoRegistroOK] = []
+        registros_error: list[ResultadoRegistroError] = []
+
         lineas = respuesta.respuesta_linea or []
+
+        for linea in lineas:
+            ref_externa = linea.ref_externa or ""
+
+            # Serializar la línea completa a XML
+            try:
+                xml_linea = serializer.render(linea)
+            except Exception as e:
+                logger.warning(f"No se pudo serializar línea {ref_externa}: {e}")
+                xml_linea = None
+
+            if linea.estado_registro in (
+                EstadoRegistroType.CORRECTO,
+                EstadoRegistroType.ACEPTADO_CON_ERRORES,
+            ):
+                # Registro OK (puede tener warnings pero fue aceptado)
+                registros_ok.append(
+                    ResultadoRegistroOK(
+                        ref_externa=ref_externa,
+                        estado=linea.estado_registro,
+                        xml_linea_respuesta=xml_linea,
+                    )
+                )
+
+            elif linea.estado_registro == EstadoRegistroType.INCORRECTO:
+                # Registro rechazado
+                es_duplicado = linea.registro_duplicado is not None
+                id_duplicado = None
+
+                if es_duplicado and linea.registro_duplicado:
+                    id_duplicado = (
+                        linea.registro_duplicado.id_peticion_registro_duplicado
+                    )
+
+                # Convertir código de error a string (puede ser int en el modelo xsdata)
+                codigo_error = None
+                if linea.codigo_error_registro is not None:
+                    codigo_error = str(linea.codigo_error_registro)
+
+                registros_error.append(
+                    ResultadoRegistroError(
+                        ref_externa=ref_externa,
+                        codigo_error=codigo_error,
+                        descripcion_error=linea.descripcion_error_registro,
+                        es_duplicado=es_duplicado,
+                        id_duplicado=id_duplicado,
+                        xml_linea_respuesta=xml_linea,
+                    )
+                )
 
         # Determinar éxito global
         exitoso = (
@@ -226,38 +325,72 @@ class AEATResponseParser:
         # Crear resultado
         resultado = ResultadoProcesamiento(
             exitoso=exitoso,
-            tiempo_espera=tiempo_espera,
+            tiempo_espera_segundos=tiempo_espera,
             estado_envio=estado_envio,
             csv=csv,
-            lineas=lineas,  # ✅ Modelos Pydantic directos, sin mapeo
-            respuesta_raw=xml_raw,
+            registros_ok=registros_ok,
+            registros_error=registros_error,
+            xml_raw=xml_raw,
         )
 
         # Generar mensaje resumen
-        resultado.mensaje = resultado.resumen()
+        resultado = self._agregar_resumen(resultado)
 
         # Log de resultados
-        logger.info(resultado.mensaje)
-
-        # Log detallado de errores
-        for linea in lineas:
-            if linea.estado_registro == EstadoRegistroType.INCORRECTO:
-                logger.warning(
-                    f"Registro {linea.ref_externa} RECHAZADO: "
-                    f"código={linea.codigo_error_registro}, "
-                    f"error={linea.descripcion_error_registro}"
-                )
-
-            # Log de duplicados
-            if linea.registro_duplicado:
-                dup = linea.registro_duplicado
-                logger.warning(
-                    f"Registro {linea.ref_externa} DUPLICADO en AEAT: "
-                    f"id_original={dup.id_peticion_registro_duplicado}, "
-                    f"estado_original={dup.estado_registro_duplicado}"
-                )
+        logger.info(resultado.mensaje_resumen)
+        self._log_detalles(resultado)
 
         return resultado
+
+    def _agregar_resumen(
+        self, resultado: ResultadoProcesamiento
+    ) -> ResultadoProcesamiento:
+        """Genera un mensaje resumen del resultado."""
+        estado_str = (
+            resultado.estado_envio.value if resultado.estado_envio else "DESCONOCIDO"
+        )
+
+        msg = (
+            f"Envío {estado_str}: "
+            f"{resultado.registros_correctos}/{resultado.total_registros} correctos"
+        )
+
+        if resultado.registros_con_errores_aceptados > 0:
+            msg += f", {resultado.registros_con_errores_aceptados} con warnings"
+
+        if resultado.registros_incorrectos > 0:
+            msg += f", {resultado.registros_incorrectos} rechazados"
+
+        if resultado.tiene_duplicados:
+            msg += f" ({len(resultado.registros_duplicados)} duplicados)"
+
+        # Crear nuevo objeto con el resumen (dataclass frozen)
+        return ResultadoProcesamiento(
+            exitoso=resultado.exitoso,
+            tiempo_espera_segundos=resultado.tiempo_espera_segundos,
+            estado_envio=resultado.estado_envio,
+            csv=resultado.csv,
+            registros_ok=resultado.registros_ok,
+            registros_error=resultado.registros_error,
+            mensaje_resumen=msg,
+            error_parseo=resultado.error_parseo,
+            xml_raw=resultado.xml_raw,
+        )
+
+    def _log_detalles(self, resultado: ResultadoProcesamiento) -> None:
+        """Log detallado de errores y duplicados."""
+        for reg_error in resultado.registros_error:
+            if reg_error.es_duplicado:
+                logger.warning(
+                    f"Registro {reg_error.ref_externa} DUPLICADO en AEAT: "
+                    f"id_original={reg_error.id_duplicado}"
+                )
+            else:
+                logger.warning(
+                    f"Registro {reg_error.ref_externa} RECHAZADO: "
+                    f"código={reg_error.codigo_error}, "
+                    f"error={reg_error.descripcion_error}"
+                )
 
     def _parsear_sin_validacion(self, xml_respuesta: str) -> ResultadoProcesamiento:
         """
@@ -299,23 +432,29 @@ class AEATResponseParser:
 
             return ResultadoProcesamiento(
                 exitoso=exitoso,
-                tiempo_espera=tiempo_espera,
+                tiempo_espera_segundos=tiempo_espera,
                 estado_envio=estado_envio,
                 csv=csv,
-                lineas=[],  # Sin detalle por registro en fallback
-                mensaje="Parseado con fallback (sin validación completa)",
-                respuesta_raw=xml_respuesta,
+                registros_ok=[],  # Sin detalle por registro en fallback
+                registros_error=[],
+                mensaje_resumen="Parseado con fallback (sin validación completa)",
+                xml_raw=xml_respuesta,
             )
 
         except Exception as e:
             logger.error(f"Error en parseo de emergencia: {e}")
             return ResultadoProcesamiento(
                 exitoso=False,
-                tiempo_espera=120,
+                tiempo_espera_segundos=120,
                 estado_envio=EstadoEnvioType.INCORRECTO,
-                error=f"No se pudo parsear respuesta: {e}",
-                respuesta_raw=xml_respuesta,
+                error_parseo=f"No se pudo parsear respuesta: {e}",
+                xml_raw=xml_respuesta,
             )
+
+
+# ============================================================================
+# FUNCIÓN HELPER
+# ============================================================================
 
 
 def parsear_respuesta_verifactu(xml_respuesta: str) -> ResultadoProcesamiento:
@@ -326,7 +465,7 @@ def parsear_respuesta_verifactu(xml_respuesta: str) -> ResultadoProcesamiento:
         xml_respuesta: XML de respuesta de AEAT
 
     Returns:
-        ResultadoProcesamiento con modelos Pydantic directos
+        ResultadoProcesamiento con datos parseados (sin lógica de BD)
     """
     parser = AEATResponseParser()
     return parser.parsear_respuesta(xml_respuesta)
