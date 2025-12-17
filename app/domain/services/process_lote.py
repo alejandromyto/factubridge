@@ -288,7 +288,8 @@ class ProcessLoteService:
         """
         Aplica resultado ERROR a un registro.
 
-        LÓGICA DE NEGOCIO: Marcar como INCORRECTO y loguear detalles.
+        LÓGICA DE NEGOCIO: Marcar como INCORRECTO y guardar detalles del error.
+        Si es duplicado, guardar también información del registro original.
         """
         try:
             registro_id = uuid.UUID(reg_error.ref_externa)
@@ -301,18 +302,47 @@ class ProcessLoteService:
             if reg_error.xml_linea_respuesta:
                 xml_respuesta_aeat = reg_error.xml_linea_respuesta
 
-            # Actualizar registro
-            self.db.execute(
-                update(RegistroFacturacion)
-                .where(RegistroFacturacion.id == registro_id)
-                .values(estado=nuevo_estado, xml_respuesta_aeat=xml_respuesta_aeat)
-            )
+            # Preparar datos a actualizar
+            valores = {
+                "estado": nuevo_estado,
+                "xml_respuesta_aeat": xml_respuesta_aeat,
+                "aeat_codigo_error": (
+                    int(reg_error.codigo_error) if reg_error.codigo_error else None
+                ),
+                "aeat_descripcion_error": reg_error.descripcion_error,
+            }
 
-            # Log detallado
+            # ✅ Si es duplicado, guardar información del registro original
             if reg_error.es_duplicado:
+                from app.domain.models.models import EstadoDuplicadoAEAT
+
+                valores["aeat_duplicado_id_peticion"] = reg_error.id_duplicado
+
+                # Mapear estado del duplicado al enum
+                if reg_error.estado_duplicado:
+                    estado_map = {
+                        "Correcta": EstadoDuplicadoAEAT.CORRECTA,
+                        "AceptadaConErrores": EstadoDuplicadoAEAT.ACEPTADA_CON_ERRORES,
+                        "Anulada": EstadoDuplicadoAEAT.ANULADA,
+                    }
+                    valores["aeat_duplicado_estado"] = estado_map.get(
+                        reg_error.estado_duplicado
+                    )
+
+                # Guardar errores del duplicado (si los hay)
+                if reg_error.codigo_error_duplicado:
+                    valores["aeat_duplicado_codigo_error"] = int(
+                        reg_error.codigo_error_duplicado
+                    )
+
+                valores["aeat_duplicado_descripcion"] = (
+                    reg_error.descripcion_error_duplicado
+                )
+
                 logger.warning(
                     f"Registro {registro_id} RECHAZADO por DUPLICADO: "
-                    f"id_original={reg_error.id_duplicado}"
+                    f"id_original={reg_error.id_duplicado}, "
+                    f"estado_original={reg_error.estado_duplicado}"
                 )
             else:
                 logger.warning(
@@ -320,6 +350,13 @@ class ProcessLoteService:
                     f"código={reg_error.codigo_error}, "
                     f"error={reg_error.descripcion_error}"
                 )
+
+            # Actualizar registro
+            self.db.execute(
+                update(RegistroFacturacion)
+                .where(RegistroFacturacion.id == registro_id)
+                .values(**valores)
+            )
 
         except (ValueError, TypeError) as e:
             logger.error(

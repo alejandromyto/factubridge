@@ -48,7 +48,7 @@ class ResultadoRegistroError:
     ref_externa: str
     """Referencia externa (típicamente el ID del RegistroFacturacion)."""
 
-    codigo_error: Optional[str] = None
+    codigo_error: Optional[int] = None
     """Código de error de AEAT."""
 
     descripcion_error: Optional[str] = None
@@ -59,6 +59,15 @@ class ResultadoRegistroError:
 
     id_duplicado: Optional[str] = None
     """ID de la petición original (si es duplicado)."""
+
+    estado_duplicado: Optional[str] = None
+    """Estado del registro duplicado en AEAT: Correcta, AceptadaConErrores, Anulada."""
+
+    codigo_error_duplicado: Optional[int] = None
+    """Código de error del registro duplicado (si aplica)."""
+
+    descripcion_error_duplicado: Optional[str] = None
+    """Descripción del error del registro duplicado (si aplica)."""
 
     xml_linea_respuesta: Optional[str] = None
     """XML completo de la línea de respuesta de AEAT (para auditoría)."""
@@ -172,7 +181,7 @@ class AEATResponseParser:
             Exception: Si el XML es inválido o no se puede parsear
         """
         try:
-            logger.debug(f"Parseando respuesta AEAT ({len(xml_respuesta)} bytes)")
+            logger.debug(f"Parseando respuesta AEAT ({len(xml_respuesta)} caracteres)")
 
             # PASO 1: Extraer XML limpio (quitar SOAP envelope si existe)
             xml_limpio = self._extraer_body_xml(xml_respuesta)
@@ -294,16 +303,28 @@ class AEATResponseParser:
                 # Registro rechazado
                 es_duplicado = linea.registro_duplicado is not None
                 id_duplicado = None
+                estado_duplicado = None
+                codigo_error_duplicado = None
+                descripcion_error_duplicado = None
 
                 if es_duplicado and linea.registro_duplicado:
-                    id_duplicado = (
-                        linea.registro_duplicado.id_peticion_registro_duplicado
-                    )
+                    dup = linea.registro_duplicado
+                    id_duplicado = dup.id_peticion_registro_duplicado
+
+                    # Estado del duplicado (Correcta, AceptadaConErrores, Anulada)
+                    if dup.estado_registro_duplicado:
+                        estado_duplicado = dup.estado_registro_duplicado.value
+
+                    # Errores del duplicado (si los hay)
+                    if dup.codigo_error_registro is not None:
+                        codigo_error_duplicado = dup.codigo_error_registro
+
+                    descripcion_error_duplicado = dup.descripcion_error_registro
 
                 # Convertir código de error a string (puede ser int en el modelo xsdata)
                 codigo_error = None
                 if linea.codigo_error_registro is not None:
-                    codigo_error = str(linea.codigo_error_registro)
+                    codigo_error = linea.codigo_error_registro
 
                 registros_error.append(
                     ResultadoRegistroError(
@@ -312,6 +333,9 @@ class AEATResponseParser:
                         descripcion_error=linea.descripcion_error_registro,
                         es_duplicado=es_duplicado,
                         id_duplicado=id_duplicado,
+                        estado_duplicado=estado_duplicado,
+                        codigo_error_duplicado=codigo_error_duplicado,
+                        descripcion_error_duplicado=descripcion_error_duplicado,
                         xml_linea_respuesta=xml_linea,
                     )
                 )
