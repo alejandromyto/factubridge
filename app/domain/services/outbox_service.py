@@ -34,6 +34,7 @@ class OutboxService:
         lote: LoteEnvio,
         task_name: str = "app.tasks.worker_aeat.enviar_lote_aeat",
         max_intentos: int = 10,
+        correlation_id: str | None = None,
     ) -> OutboxEvent:
         """
         Crea un evento outbox asociado a un lote.
@@ -56,9 +57,11 @@ class OutboxService:
             raise ValueError(
                 "El lote debe tener ID antes de crear evento (ejecutar flush primero)"
             )
-
-        # Crear payload (solo lote_id necesario)
-        payload = json.dumps({"lote_id": lote.id})
+        # Crear payload
+        payload_dict: dict[str, str] = {"lote_id": str(lote.id)}
+        if correlation_id:
+            payload_dict["correlation_id"] = correlation_id
+        payload = json.dumps(payload_dict)
 
         # Crear evento
         evento = OutboxEvent(

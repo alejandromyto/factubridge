@@ -10,6 +10,8 @@ from typing import Any, Dict
 
 from pythonjsonlogger.json import JsonFormatter
 
+from app.core.logging.logging_context import get_correlation_id
+
 
 class CustomJsonFormatter(JsonFormatter):
     """Formateador JSON con campos adicionales para trazabilidad."""
@@ -41,6 +43,10 @@ class CustomJsonFormatter(JsonFormatter):
         instalacion_id = getattr(record, "instalacion_id", None)
         if instalacion_id is not None:
             log_data["instalacion_id"] = instalacion_id
+        # correlation_id desde contextvars
+        correlation_id = get_correlation_id()
+        if correlation_id:
+            log_data["correlation_id"] = correlation_id
 
 
 def setup_logging(log_level: str = "INFO", use_json: bool = True) -> None:

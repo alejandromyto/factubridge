@@ -65,7 +65,9 @@ def adquirir_lock_instalacion(instalacion_id: int) -> Optional[RedisLock]:
 
 
 @typed_task(bind=True, max_retries=3, default_retry_delay=30)
-def orquestar_instalacion(self: BindTask, instalacion_sif_id: int) -> None:
+def orquestar_instalacion(
+    self: BindTask, instalacion_sif_id: int, correlation_id: str | None = None
+) -> None:
     """
     Orquesta la creación de lote + evento outbox para una instalación.
 
@@ -86,7 +88,14 @@ def orquestar_instalacion(self: BindTask, instalacion_sif_id: int) -> None:
     - Solo errores transitorios (BD, Redis)
     - Errores de negocio NO se reintentan
     """
-    logger.info(f"=== Orquestando instalación {instalacion_sif_id} ===")
+    from app.core.logging.logging_context import set_correlation_id
+
+    set_correlation_id(correlation_id)
+
+    logger.info(
+        f"Orquestando instalación {instalacion_sif_id}"
+        f" | correlation_id={correlation_id}"
+    )
 
     lock: Optional[RedisLock] = None
     db: Session = session_factory_sync()
@@ -130,7 +139,7 @@ def orquestar_instalacion(self: BindTask, instalacion_sif_id: int) -> None:
 
         # PASO 4: Crear evento outbox (flush, NO commit)
         servicio_outbox = OutboxService(db)
-        evento = servicio_outbox.crear_evento(lote)
+        evento = servicio_outbox.crear_evento(lote, correlation_id=correlation_id)
 
         logger.info(f"Evento outbox {evento.id} creado (flush) para lote {lote.id}")
 

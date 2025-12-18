@@ -26,6 +26,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.logging.logging_context import set_correlation_id
 from app.domain.models.models import (
     EstadoLoteEnvio,
     EstadoOutboxEvent,
@@ -40,7 +41,9 @@ logger = logging.getLogger(__name__)
 
 
 @typed_task
-def dispatch_outbox_event(batch_size: int = 10) -> None:
+def dispatch_outbox_event(
+    batch_size: int = 10, correlation_id: str | None = None
+) -> None:
     """
     Dispatcher: lee eventos pendientes y los encola al worker AEAT.
 
@@ -104,10 +107,13 @@ def dispatch_outbox_event(batch_size: int = 10) -> None:
                 # Parsear payload
                 payload = json.loads(evento.payload)
                 lote_id = payload["lote_id"]
+                correlation_id = payload.get("correlation_id")
+                set_correlation_id(correlation_id)
 
                 # Encolar en worker AEAT con retry policy agresiva
                 cast(Task, enviar_lote_aeat).apply_async(
                     args=[lote_id, evento.id],
+                    kwargs={"correlation_id": correlation_id},
                     retry=True,
                     retry_policy={
                         "max_retries": evento.max_intentos,
@@ -129,6 +135,7 @@ def dispatch_outbox_event(batch_size: int = 10) -> None:
                 logger.info(
                     f"📤 Evento {evento.id} encolado para lote {lote_id} "
                     f"(instalación {evento.instalacion_sif_id})"
+                    f" | correlation_id={correlation_id}"
                 )
 
             except json.JSONDecodeError as e:

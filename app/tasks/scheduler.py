@@ -15,10 +15,12 @@ Garantías:
 
 import logging
 from typing import cast
+from uuid import uuid4
 
 from celery import Task
 from sqlalchemy import select
 
+from app.core.logging.logging_context import set_correlation_id
 from app.domain.models.models import InstalacionSIF
 from app.domain.services.lote_service import LoteService
 from app.infrastructure.database import get_sync_db
@@ -44,7 +46,9 @@ def scheduler_envios_ligero() -> None:
 
     Ejecutar: Cada 5 minutos vía Celery Beat
     """
-    logger.info("=== Scheduler ligero iniciado ===")
+    correlation_id = str(uuid4())  # Genera un ID único para este flujo
+    set_correlation_id(correlation_id)
+    logger.info(f"Scheduler iniciado | correlation_id={correlation_id}")
 
     stats = {
         "total": 0,
@@ -71,7 +75,10 @@ def scheduler_envios_ligero() -> None:
                     # Encolar tarea de orquestación (procesamiento pesado)
                     from app.tasks.orquestador import orquestar_instalacion
 
-                    cast(Task, orquestar_instalacion).delay(ins.id)
+                    cast(Task, orquestar_instalacion).apply_async(
+                        args=[ins.id],
+                        kwargs={"correlation_id": correlation_id},
+                    )
                     stats["encoladas"] += 1
 
                     logger.info(f"📤 Instalación {ins.id} encolada para orquestación")
