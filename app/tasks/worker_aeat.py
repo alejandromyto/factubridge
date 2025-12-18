@@ -64,7 +64,11 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
     - 30 segundos entre reintentos (escalonado)
     - Rate limit: 10/minuto (respeta límites AEAT)
     """
-    logger.info(f"=== Procesando lote {lote_id} (evento {evento_id}) ===")
+    # Logger con contexto (en JSON aparecerán lote_id y evento_id)
+    logger.info(
+        "Iniciando procesamiento de lote",
+        extra={"lote_id": str(lote_id), "evento_id": evento_id},
+    )
 
     db: Session = session_factory_sync()
 
@@ -73,20 +77,27 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         lote = db.get(LoteEnvio, lote_id)
 
         if not lote:
-            logger.error(f"❌ Lote {lote_id} no encontrado en BD")
+            logger.error("Lote no encontrado en BD", extra={"lote_id": str(lote_id)})
             # Marcar evento como error
             servicio_outbox = OutboxService(db)
             servicio_outbox.marcar_error(evento_id, "Lote no encontrado")
             db.commit()
             return  # No reintentar si no existe
 
+        # Añadir instalacion_id al contexto para todos los logs siguientes
+        log_context = {
+            "lote_id": str(lote_id),
+            "evento_id": evento_id,
+            "instalacion_id": lote.instalacion_sif_id,
+        }
+
         # Actualizar estado a ENVIANDO
         lote.estado = EstadoLoteEnvio.ENVIANDO
         db.flush()
 
         logger.info(
-            f"Lote {lote_id}: instalación {lote.instalacion_sif_id}, "
-            f"{lote.num_registros} registros"
+            f"Lote preparado para envío: {lote.num_registros} registros",
+            extra=log_context,
         )
 
         # PASO 2-5: Procesar lote completo
@@ -122,6 +133,18 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
                 if ejemplos:
                     error_msg += f". Ejemplos: {'; '.join(ejemplos)}"
 
+            # Log estructurado del error
+            logger.error(
+                "Error en procesamiento AEAT",
+                extra={
+                    **log_context,
+                    "error": error_msg,
+                    "estado_envio": (
+                        resultado.estado_envio.value if resultado.estado_envio else None
+                    ),
+                },
+            )
+
             # Actualizar estado del lote según el tipo de error
             # Si es error de parseo/comunicación, es ERROR
             lote.estado = EstadoLoteEnvio.ERROR
@@ -145,7 +168,13 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         db.flush()
 
         logger.info(
-            f"✅ Lote {lote_id} procesado exitosamente: {resultado.mensaje_resumen}"
+            "Lote procesado exitosamente",
+            extra={
+                **log_context,
+                "estado_final": lote.estado.value,
+                "mensaje_resumen": resultado.mensaje_resumen,
+                "csv": resultado.csv,
+            },
         )
 
         # PASO 6: Marcar evento como procesado
@@ -155,30 +184,52 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         # COMMIT final
         db.commit()
 
+        # Log de estadísticas (JSON estructurado para métricas)
         logger.info(
-            f"✅ Lote {lote_id} completado exitosamente "
-            f"(evento {evento_id} marcado como procesado)"
-        )
-
-        # Log de estadísticas
-        logger.info(
-            f"📊 Estadísticas del lote {lote_id}: "
-            f"{resultado.registros_correctos} correctos, "
-            f"{resultado.registros_con_errores_aceptados} con warnings, "
-            f"{resultado.registros_incorrectos} rechazados"
+            "Estadísticas del lote",
+            extra={
+                **log_context,
+                "total_registros": resultado.total_registros,
+                "registros_correctos": resultado.registros_correctos,
+                "registros_con_errores": resultado.registros_con_errores_aceptados,
+                "registros_incorrectos": resultado.registros_incorrectos,
+                "tiene_duplicados": resultado.tiene_duplicados,
+                "num_duplicados": (
+                    len(resultado.registros_duplicados)
+                    if resultado.tiene_duplicados
+                    else 0
+                ),
+                "tiempo_espera_segundos": resultado.tiempo_espera_segundos,
+            },
         )
 
         if resultado.tiene_duplicados:
             logger.warning(
-                f"⚠️ Lote {lote_id} tiene {len(resultado.registros_duplicados)} "
-                f"registros duplicados"
+                f"Lote con {len(resultado.registros_duplicados)} registros duplicados",
+                extra={
+                    **log_context,
+                    "duplicados": [
+                        {
+                            "ref_externa": d.ref_externa,
+                            "id_original": d.id_duplicado,
+                            "estado_original": d.estado_duplicado,
+                        }
+                        for d in resultado.registros_duplicados[:5]  # Primeros 5
+                    ],
+                },
             )
 
     except SQLAlchemyError as e:
         # Error de BD: rollback y reintentar
         db.rollback()
         logger.error(
-            f"❌ Error de BD al procesar lote {lote_id}: {e}",
+            "Error de BD al procesar lote",
+            extra={
+                "lote_id": str(lote_id),
+                "evento_id": evento_id,
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
             exc_info=True,
         )
 
@@ -188,12 +239,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
     except Exception as e:
         # Error inesperado: decidir si reintentar
         db.rollback()
-        logger.error(
-            f"❌ Error al procesar lote {lote_id}: {e}",
-            exc_info=True,
-        )
 
-        # Distinguir entre errores retryables y no retryables
         error_str = str(e).lower()
 
         # Errores NO retryables (problemas de validación o negocio)
@@ -218,7 +264,15 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
 
         if es_no_retryable:
             # No reintentar, marcar como error permanente
-            logger.warning(f"⚠️ Error no retryable en lote {lote_id}: {e}")
+            logger.warning(
+                "Error no retryable en lote",
+                extra={
+                    "lote_id": str(lote_id),
+                    "evento_id": evento_id,
+                    "error": str(e),
+                    "es_no_retryable": True,
+                },
+            )
 
             # Actualizar estado del lote
             lote = db.get(LoteEnvio, lote_id)
@@ -236,8 +290,15 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         # Errores retryables (timeout, conexión, 5xx, etc.)
         if self.request.retries < self.max_retries:
             logger.warning(
-                f"🔄 Reintentando lote {lote_id} "
-                f"(intento {self.request.retries + 1}/{self.max_retries})"
+                "Reintentando lote",
+                extra={
+                    "lote_id": str(lote_id),
+                    "evento_id": evento_id,
+                    "intento": self.request.retries + 1,
+                    "max_intentos": self.max_retries,
+                    "error": str(e),
+                    "es_retryable": es_retryable,
+                },
             )
 
             # Actualizar estado del lote si es 5xx de AEAT
@@ -251,6 +312,16 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
             raise self.retry(exc=e)
         else:
             # Máximo de reintentos alcanzado: marcar como error permanente
+            logger.critical(
+                "Máximo de reintentos alcanzado",
+                extra={
+                    "lote_id": str(lote_id),
+                    "evento_id": evento_id,
+                    "intentos": self.max_retries,
+                    "error": str(e),
+                },
+            )
+
             lote = db.get(LoteEnvio, lote_id)
             if lote:
                 lote.estado = EstadoLoteEnvio.ERROR
@@ -261,14 +332,10 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
                 evento_id, f"Máximo de reintentos alcanzado: {str(e)[:500]}"
             )
             db.commit()
-            logger.critical(
-                f"⚠️ ALERTA: Lote {lote_id} falló después de {self.max_retries} "
-                f"intentos. Evento {evento_id} marcado como ERROR."
-            )
 
     finally:
         db.close()
-        logger.debug(f"Sesión cerrada para lote {lote_id}")
+        logger.debug("Sesión cerrada", extra={"lote_id": str(lote_id)})
 
 
 # Tarea auxiliar para debugging/testing

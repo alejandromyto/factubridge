@@ -11,15 +11,16 @@ from slowapi.util import get_remote_address
 
 from app.api.v1 import consulta_endpoint, factura_endpoint
 from app.config.settings import settings
+from app.core.logging.logging_config import setup_logging
 from app.infrastructure.database import Base, engine
+from app.middleware.correlation_id import CorrelationIdMiddleware
 
-# Configurar logging
-logging.basicConfig(
-    level=getattr(logging, settings.log_level),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Configurar logging (JSON en producción, texto en desarrollo)
+setup_logging(
+    log_level=settings.log_level,
+    use_json=not settings.debug,  # JSON en prod, texto en dev
 )
 logger = logging.getLogger(__name__)
-
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -51,6 +52,7 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
 )
+app.add_middleware(CorrelationIdMiddleware)
 
 # Rate limiter state
 app.state.limiter = limiter
