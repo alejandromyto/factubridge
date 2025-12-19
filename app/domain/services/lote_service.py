@@ -76,7 +76,8 @@ class LoteService:
         instalacion = self._control_flujo(instalacion_sif_id, max_registros)
         if not instalacion:
             logger.debug(
-                f"Instalación {instalacion_sif_id} no cumple condiciones de flujo"
+                "Instalación no cumple condiciones de control de flujo",
+                extra={"instalacion_id": instalacion_sif_id},
             )
             return None
 
@@ -99,7 +100,8 @@ class LoteService:
 
         if not registros:
             logger.debug(
-                f"No hay registros disponibles para instalación {instalacion_sif_id}"
+                "No hay registros disponibles para crear lote",
+                extra={"instalacion_id": instalacion_sif_id},
             )
             return None
 
@@ -139,8 +141,12 @@ class LoteService:
         )
 
         logger.info(
-            f"Lote {lote.id} creado para instalación {instalacion_sif_id} "
-            f"con {encolados} registros (flush ejecutado, pendiente commit)"
+            "Lote creado con flush, pendiente de commit",
+            extra={
+                "lote_id": str(lote.id),
+                "instalacion_id": instalacion_sif_id,
+                "num_registros": encolados,
+            },
         )
 
         return lote
@@ -177,7 +183,10 @@ class LoteService:
         """
         instalacion = self.db.get(InstalacionSIF, instalacion_sif_id)
         if not instalacion:
-            logger.warning(f"Instalación {instalacion_sif_id} no encontrada")
+            logger.warning(
+                "Instalación no encontrada",
+                extra={"instalacion_id": instalacion_sif_id},
+            )
             return None
 
         ahora = datetime.now(timezone.utc)
@@ -199,23 +208,35 @@ class LoteService:
             tiempo_cumplido = tiempo_transcurrido >= tiempo_espera_seguro
 
             logger.debug(
-                f"Instalación {instalacion_sif_id}: "
-                f"tiempo_transcurrido={tiempo_transcurrido:.1f}s, "
-                f"tiempo_espera_seguro={tiempo_espera_seguro:.1f}s, "
-                f"cumplido={tiempo_cumplido}"
+                "Evaluación de tiempo de espera",
+                extra={
+                    "instalacion_id": instalacion_sif_id,
+                    "tiempo_transcurrido": round(tiempo_transcurrido, 1),
+                    "tiempo_espera_seguro": round(tiempo_espera_seguro, 1),
+                    "tiempo_cumplido": tiempo_cumplido,
+                },
             )
         else:
             # Primera vez: siempre permitir (respetando límite de registros)
             tiempo_cumplido = True
-            logger.debug(f"Instalación {instalacion_sif_id}: primer envío permitido")
+            logger.debug(
+                "Primer envío permitido para instalación",
+                extra={"instalacion_id": instalacion_sif_id},
+            )
 
         # CRÍTICO: Si hay registros pero NO se cumple ninguna condición, NO enviar
         if not (max_registros_acumulados or tiempo_cumplido):
             logger.debug(
-                f"Instalación {instalacion_sif_id} NO cumple condiciones: "
-                f"pendientes={instalacion.registros_pendientes}/{max_registros}, "
-                f"tiempo_transcurrido={tiempo_transcurrido or 0:.1f}s/"
-                f"{instalacion.ultimo_tiempo_espera}s"
+                "Instalación no cumple condiciones de control de flujo",
+                extra={
+                    "instalacion_id": instalacion_sif_id,
+                    "registros_pendientes": instalacion.registros_pendientes,
+                    "max_registros": max_registros,
+                    "tiempo_transcurrido": (
+                        round(tiempo_transcurrido, 1) if tiempo_transcurrido else 0
+                    ),
+                    "tiempo_espera": instalacion.ultimo_tiempo_espera,
+                },
             )
             return None
 
@@ -230,9 +251,12 @@ class LoteService:
         if count_pendientes == 0:
             # Inconsistencia detectada: el contador no coincide con la realidad
             logger.warning(
-                f"⚠️ Inconsistencia en instalación {instalacion_sif_id}: "
-                f"contador={instalacion.registros_pendientes}, real={count_pendientes}."
-                f"Corrigiendo contador..."
+                "Inconsistencia detectada en contador de registros pendientes",
+                extra={
+                    "instalacion_id": instalacion_sif_id,
+                    "contador": instalacion.registros_pendientes,
+                    "real": count_pendientes,
+                },
             )
             self.db.execute(
                 update(InstalacionSIF)
@@ -243,10 +267,13 @@ class LoteService:
             return None
 
         logger.info(
-            f"✅ Instalación {instalacion_sif_id} cumple condiciones: "
-            f"pendientes={instalacion.registros_pendientes}, "
-            f"max_acumulados={max_registros_acumulados}, "
-            f"tiempo_cumplido={tiempo_cumplido}"
+            "Instalación cumple condiciones de control de flujo",
+            extra={
+                "instalacion_id": instalacion_sif_id,
+                "registros_pendientes": instalacion.registros_pendientes,
+                "max_registros_acumulados": max_registros_acumulados,
+                "tiempo_cumplido": tiempo_cumplido,
+            },
         )
 
         return instalacion

@@ -64,7 +64,6 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
     - 30 segundos entre reintentos (escalonado)
     - Rate limit: 10/minuto (respeta límites AEAT)
     """
-    # Logger con contexto (en JSON aparecerán lote_id y evento_id)
     logger.info(
         "Iniciando procesamiento de lote",
         extra={"lote_id": str(lote_id), "evento_id": evento_id},
@@ -77,7 +76,10 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         lote = db.get(LoteEnvio, lote_id)
 
         if not lote:
-            logger.error("Lote no encontrado en BD", extra={"lote_id": str(lote_id)})
+            logger.error(
+                "Lote no encontrado en base de datos",
+                extra={"lote_id": str(lote_id)},
+            )
             # Marcar evento como error
             servicio_outbox = OutboxService(db)
             servicio_outbox.marcar_error(evento_id, "Lote no encontrado")
@@ -96,8 +98,8 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         db.flush()
 
         logger.info(
-            f"Lote preparado para envío: {lote.num_registros} registros",
-            extra=log_context,
+            "Lote preparado para envío",
+            extra={**log_context, "num_registros": lote.num_registros},
         )
 
         # PASO 2-5: Procesar lote completo
@@ -186,7 +188,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
 
         # Log de estadísticas (JSON estructurado para métricas)
         logger.info(
-            "Estadísticas del lote",
+            "Estadísticas del lote procesado",
             extra={
                 **log_context,
                 "total_registros": resultado.total_registros,
@@ -205,9 +207,10 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
 
         if resultado.tiene_duplicados:
             logger.warning(
-                f"Lote con {len(resultado.registros_duplicados)} registros duplicados",
+                "Lote contiene registros duplicados",
                 extra={
                     **log_context,
+                    "num_duplicados": len(resultado.registros_duplicados),
                     "duplicados": [
                         {
                             "ref_externa": d.ref_externa,
@@ -223,7 +226,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         # Error de BD: rollback y reintentar
         db.rollback()
         logger.error(
-            "Error de BD al procesar lote",
+            "Error de base de datos al procesar lote",
             extra={
                 "lote_id": str(lote_id),
                 "evento_id": evento_id,
@@ -265,7 +268,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         if es_no_retryable:
             # No reintentar, marcar como error permanente
             logger.warning(
-                "Error no retryable en lote",
+                "Error no retryable detectado en lote",
                 extra={
                     "lote_id": str(lote_id),
                     "evento_id": evento_id,
@@ -290,7 +293,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         # Errores retryables (timeout, conexión, 5xx, etc.)
         if self.request.retries < self.max_retries:
             logger.warning(
-                "Reintentando lote",
+                "Reintentando procesamiento de lote",
                 extra={
                     "lote_id": str(lote_id),
                     "evento_id": evento_id,
@@ -313,7 +316,7 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
         else:
             # Máximo de reintentos alcanzado: marcar como error permanente
             logger.critical(
-                "Máximo de reintentos alcanzado",
+                "Máximo de reintentos alcanzado para lote",
                 extra={
                     "lote_id": str(lote_id),
                     "evento_id": evento_id,
@@ -335,7 +338,10 @@ def enviar_lote_aeat(self: BindTask, lote_id: int, evento_id: int) -> None:
 
     finally:
         db.close()
-        logger.debug("Sesión cerrada", extra={"lote_id": str(lote_id)})
+        logger.debug(
+            "Sesión de base de datos cerrada",
+            extra={"lote_id": str(lote_id)},
+        )
 
 
 # Tarea auxiliar para debugging/testing

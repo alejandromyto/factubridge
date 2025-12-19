@@ -78,8 +78,12 @@ class OutboxService:
         self.db.flush()  # Obtener ID del evento sin commitear
 
         logger.info(
-            f"Evento outbox {evento.id} creado para lote {lote.id} "
-            f"(instalación {lote.instalacion_sif_id})"
+            "Evento outbox creado",
+            extra={
+                "evento_id": evento.id,
+                "lote_id": str(lote.id),
+                "instalacion_id": lote.instalacion_sif_id,
+            },
         )
 
         return evento
@@ -91,17 +95,12 @@ class OutboxService:
         Args:
             evento_id: ID del evento
         """
-        # evento = self.db.get(OutboxEvent, evento_id)
-        # if not evento:
-        #     logger.warning(f"Evento {evento_id} no encontrado para marcar encolado")
-        #     return
-
-        # evento.estado = EstadoOutboxEvent.ENCOLADO
-        # evento.intentos += 1
-        # evento.ultimo_intento_at = datetime.now(timezone.utc)
         exists_stmt = select(exists().where(OutboxEvent.id == evento_id))
         if not self.db.execute(exists_stmt).scalar():
-            logger.warning(f"Evento {evento_id} no encontrado para marcar encolado")
+            logger.warning(
+                "Evento no encontrado para marcar como encolado",
+                extra={"evento_id": evento_id},
+            )
             return
         stmt = (
             update(OutboxEvent)
@@ -125,13 +124,19 @@ class OutboxService:
         """
         evento = self.db.get(OutboxEvent, evento_id)
         if not evento:
-            logger.warning(f"Evento {evento_id} no encontrado para marcar procesado")
+            logger.warning(
+                "Evento no encontrado para marcar como procesado",
+                extra={"evento_id": evento_id},
+            )
             return
 
         evento.estado = EstadoOutboxEvent.PROCESADO
         evento.procesado_at = datetime.now(timezone.utc)
 
-        logger.info(f"Evento {evento_id} marcado como procesado")
+        logger.info(
+            "Evento marcado como procesado",
+            extra={"evento_id": evento_id},
+        )
 
     def marcar_error(self, evento_id: int, error_mensaje: str) -> None:
         """
@@ -143,11 +148,20 @@ class OutboxService:
         """
         evento = self.db.get(OutboxEvent, evento_id)
         if not evento:
-            logger.warning(f"Evento {evento_id} no encontrado para marcar error")
+            logger.warning(
+                "Evento no encontrado para marcar como error",
+                extra={"evento_id": evento_id},
+            )
             return
 
         evento.estado = EstadoOutboxEvent.ERROR
         evento.error_mensaje = error_mensaje[:500]  # Limitar longitud
         evento.ultimo_intento_at = datetime.now(timezone.utc)
 
-        logger.error(f"Evento {evento_id} marcado como error final: {error_mensaje}")
+        logger.error(
+            "Evento marcado como error final",
+            extra={
+                "evento_id": evento_id,
+                "error_mensaje": error_mensaje[:200],  # Truncar para log
+            },
+        )

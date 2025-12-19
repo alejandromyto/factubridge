@@ -63,7 +63,7 @@ def dispatch_outbox_event(
 
     Ejecutar: Cada 10 segundos vía Celery Beat
     """
-    logger.info("=== Dispatcher outbox iniciado ===")
+    logger.info("Dispatcher outbox iniciado")
 
     stats = {
         "leidos": 0,
@@ -95,7 +95,10 @@ def dispatch_outbox_event(
             logger.debug("No hay eventos pendientes para despachar")
             return
 
-        logger.info(f"Procesando {stats['leidos']} eventos pendientes")
+        logger.info(
+            "Procesando eventos pendientes",
+            extra={"eventos_leidos": stats["leidos"]},
+        )
 
         # PASO 2: Encolar cada evento en worker AEAT
         servicio_outbox = OutboxService(db)
@@ -133,21 +136,36 @@ def dispatch_outbox_event(
                 stats["encolados"] += 1
 
                 logger.info(
-                    f"📤 Evento {evento.id} encolado para lote {lote_id} "
-                    f"(instalación {evento.instalacion_sif_id})"
-                    f" | correlation_id={correlation_id}"
+                    "Evento encolado para worker AEAT",
+                    extra={
+                        "evento_id": evento.id,
+                        "lote_id": lote_id,
+                        "instalacion_id": evento.instalacion_sif_id,
+                    },
                 )
 
             except json.JSONDecodeError as e:
                 stats["errores"] += 1
-                logger.error(f"❌ Error parseando payload del evento {evento.id}: {e}")
+                logger.error(
+                    "Error parseando payload del evento",
+                    extra={
+                        "evento_id": evento.id,
+                        "error": str(e),
+                        "error_type": "JSONDecodeError",
+                    },
+                )
                 # Marcar como error y continuar
                 servicio_outbox.marcar_error(evento.id, f"Payload inválido: {e}")
 
             except Exception as e:
                 stats["errores"] += 1
                 logger.error(
-                    f"❌ Error encolando evento {evento.id}: {e}",
+                    "Error encolando evento",
+                    extra={
+                        "evento_id": evento.id,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
                     exc_info=True,
                 )
                 # Continuar con otros eventos
@@ -157,14 +175,19 @@ def dispatch_outbox_event(
         db.commit()
 
         logger.info(
-            f"✅ Dispatcher commit exitoso: {stats['encolados']} eventos encolados"
+            "Dispatcher commit exitoso",
+            extra={"eventos_encolados": stats["encolados"]},
         )
 
     except SQLAlchemyError as e:
         # Error de BD: rollback (eventos vuelven a 'pendiente')
         db.rollback()
         logger.error(
-            f"❌ Error de BD en dispatcher (rollback): {e}",
+            "Error de base de datos en dispatcher, rollback ejecutado",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
             exc_info=True,
         )
         # No propagar error: siguiente ejecución lo reintentará
@@ -173,17 +196,23 @@ def dispatch_outbox_event(
         # Error inesperado: rollback
         db.rollback()
         logger.error(
-            f"❌ Error inesperado en dispatcher (rollback): {e}",
+            "Error inesperado en dispatcher, rollback ejecutado",
+            extra={
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
             exc_info=True,
         )
 
     finally:
         db.close()
-        logger.debug("Sesión cerrada en dispatcher")
+        logger.debug("Sesión de base de datos cerrada en dispatcher")
 
     logger.info(
-        f"=== Dispatcher completado === | "
-        f"Leídos: {stats['leidos']} | "
-        f"Encolados: {stats['encolados']} | "
-        f"Errores: {stats['errores']}"
+        "Dispatcher completado",
+        extra={
+            "eventos_leidos": stats["leidos"],
+            "eventos_encolados": stats["encolados"],
+            "errores": stats["errores"],
+        },
     )

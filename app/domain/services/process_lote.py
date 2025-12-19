@@ -70,7 +70,10 @@ class ProcessLoteService:
         - Actualiza estado del lote y registros
         - CRÍTICO: Actualiza instalacion.ultimo_envio_at y ultimo_tiempo_espera
         """
-        logger.info(f"=== Procesando lote {lote.id} ===")
+        logger.info(
+            "Procesando lote",
+            extra={"lote_id": str(lote.id)},
+        )
 
         try:
             # PASO 1: Obtener registros del lote
@@ -84,7 +87,13 @@ class ProcessLoteService:
                     error_parseo="Lote sin registros asociados",
                 )
 
-            logger.info(f"Lote {lote.id}: {len(registros)} registros para procesar")
+            logger.info(
+                "Registros obtenidos para procesamiento",
+                extra={
+                    "lote_id": str(lote.id),
+                    "num_registros": len(registros),
+                },
+            )
 
             # PASO 2: Generar XML de envío
             xml_envio = self._generar_xml_envio(lote, registros)
@@ -93,7 +102,10 @@ class ProcessLoteService:
             lote.xml_enviado = xml_envio
             self.db.flush()
 
-            logger.info(f"XML generado para lote {lote.id}")
+            logger.info(
+                "XML de envío generado",
+                extra={"lote_id": str(lote.id)},
+            )
 
             # PASO 3: Enviar a AEAT y parsear respuesta
             resultado = self._enviar_a_aeat(lote, xml_envio)
@@ -107,20 +119,31 @@ class ProcessLoteService:
             # PASO 4: Aplicar resultados a la BD
             self._aplicar_resultados_a_bd(lote, resultado)
 
-            # PASO 5: ✅ CRÍTICO - Actualizar instalación (control de flujo)
+            # PASO 5: CRÍTICO - Actualizar instalación (control de flujo)
             self._actualizar_instalacion_control_flujo(
                 lote, resultado.tiempo_espera_segundos or TIEMPO_ESPERA_DEFAULT
             )
 
             logger.info(
-                f"✅ Lote {lote.id} procesado exitosamente. "
-                f"Tiempo espera AEAT: {resultado.tiempo_espera_segundos}s"
+                "Lote procesado exitosamente",
+                extra={
+                    "lote_id": str(lote.id),
+                    "tiempo_espera_segundos": resultado.tiempo_espera_segundos,
+                },
             )
 
             return resultado
 
         except Exception as e:
-            logger.error(f"❌ Error procesando lote {lote.id}: {e}", exc_info=True)
+            logger.error(
+                "Error procesando lote",
+                extra={
+                    "lote_id": str(lote.id),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
             # Propagar para que Celery reintente
             raise
 
@@ -170,7 +193,10 @@ class ProcessLoteService:
             # Crear cliente
             client = AEATClient(instalacion)
 
-            logger.info(f"Enviando lote {lote.id} a AEAT")
+            logger.info(
+                "Enviando lote a AEAT",
+                extra={"lote_id": str(lote.id)},
+            )
 
             # Enviar XML
             respuesta_http = client.enviar_xml(xml_envio)
@@ -192,21 +218,33 @@ class ProcessLoteService:
                     error_parseo="Respuesta HTTP vacía: no se recibió XML de AEAT",
                 )
 
-            # ✅ Parsear respuesta XML (el parser hace TODA la interpretación)
+            # Parsear respuesta XML (el parser hace TODA la interpretación)
             resultado = parsear_respuesta_verifactu(respuesta_http.xml_respuesta)
 
             logger.info(
-                f"Respuesta AEAT para lote {lote.id}: "
-                f"tiempo_espera={resultado.tiempo_espera_segundos}s, "
-                f"estado={resultado.estado_envio}"
+                "Respuesta AEAT recibida y parseada",
+                extra={
+                    "lote_id": str(lote.id),
+                    "tiempo_espera_segundos": resultado.tiempo_espera_segundos,
+                    "estado_envio": (
+                        resultado.estado_envio.value if resultado.estado_envio else None
+                    ),
+                },
             )
 
             return resultado
 
         except Exception as e:
             # Error de conexión/timeout: propagar para retry
-            error_msg = f"Error al enviar a AEAT: {e}"
-            logger.error(error_msg, exc_info=True)
+            logger.error(
+                "Error al enviar lote a AEAT",
+                extra={
+                    "lote_id": str(lote.id),
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                exc_info=True,
+            )
             raise
 
     def _aplicar_resultados_a_bd(
@@ -230,18 +268,22 @@ class ProcessLoteService:
         lote.csv_aeat = resultado.csv
         self.db.flush()
 
-        # ✅ Aplicar resultados a registros OK
+        # Aplicar resultados a registros OK
         for reg_ok in resultado.registros_ok:
             self._aplicar_registro_ok(reg_ok)
 
-        # ✅ Aplicar resultados a registros ERROR
+        # Aplicar resultados a registros ERROR
         for reg_error in resultado.registros_error:
             self._aplicar_registro_error(reg_error)
 
         logger.info(
-            f"Lote {lote.id}: "
-            f"{resultado.registros_correctos}/{resultado.total_registros} correctos, "
-            f"{resultado.registros_incorrectos} rechazados"
+            "Resultados aplicados a base de datos",
+            extra={
+                "lote_id": str(lote.id),
+                "registros_correctos": resultado.registros_correctos,
+                "total_registros": resultado.total_registros,
+                "registros_incorrectos": resultado.registros_incorrectos,
+            },
         )
 
     def _aplicar_registro_ok(self, reg_ok: ResultadoRegistroOK) -> None:
@@ -264,7 +306,13 @@ class ProcessLoteService:
                 nuevo_estado = EstadoRegistroFacturacion.ACEPTADO_CON_ERRORES
             else:
                 # No debería pasar (el parser ya filtró)
-                logger.warning(f"Estado inesperado en registro OK: {reg_ok.estado}")
+                logger.warning(
+                    "Estado inesperado en registro OK",
+                    extra={
+                        "registro_id": str(registro_id),
+                        "estado": reg_ok.estado.value if reg_ok.estado else None,
+                    },
+                )
                 nuevo_estado = EstadoRegistroFacturacion.CORRECTO
 
             # Serializar respuesta XML (si está disponible)
@@ -279,10 +327,23 @@ class ProcessLoteService:
                 .values(estado=nuevo_estado, xml_respuesta_aeat=xml_respuesta_aeat)
             )
 
-            logger.debug(f"Registro {registro_id} → {nuevo_estado.value}")
+            logger.debug(
+                "Registro actualizado a estado OK",
+                extra={
+                    "registro_id": str(registro_id),
+                    "nuevo_estado": nuevo_estado.value,
+                },
+            )
 
         except (ValueError, TypeError) as e:
-            logger.error(f"Error procesando registro OK '{reg_ok.ref_externa}': {e}")
+            logger.error(
+                "Error procesando registro OK",
+                extra={
+                    "ref_externa": reg_ok.ref_externa,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+            )
 
     def _aplicar_registro_error(self, reg_error: ResultadoRegistroError) -> None:
         """
@@ -312,7 +373,7 @@ class ProcessLoteService:
                 "aeat_descripcion_error": reg_error.descripcion_error,
             }
 
-            # ✅ Si es duplicado, guardar información del registro original
+            # Si es duplicado, guardar información del registro original
             if reg_error.es_duplicado:
                 from app.domain.models.models import EstadoDuplicadoAEAT
 
@@ -340,15 +401,21 @@ class ProcessLoteService:
                 )
 
                 logger.warning(
-                    f"Registro {registro_id} RECHAZADO por DUPLICADO: "
-                    f"id_original={reg_error.id_duplicado}, "
-                    f"estado_original={reg_error.estado_duplicado}"
+                    "Registro rechazado por duplicado",
+                    extra={
+                        "registro_id": str(registro_id),
+                        "id_original": reg_error.id_duplicado,
+                        "estado_original": reg_error.estado_duplicado,
+                    },
                 )
             else:
                 logger.warning(
-                    f"Registro {registro_id} RECHAZADO: "
-                    f"código={reg_error.codigo_error}, "
-                    f"error={reg_error.descripcion_error}"
+                    "Registro rechazado por AEAT",
+                    extra={
+                        "registro_id": str(registro_id),
+                        "codigo_error": reg_error.codigo_error,
+                        "descripcion_error": reg_error.descripcion_error,
+                    },
                 )
 
             # Actualizar registro
@@ -360,7 +427,12 @@ class ProcessLoteService:
 
         except (ValueError, TypeError) as e:
             logger.error(
-                f"Error procesando registro ERROR '{reg_error.ref_externa}': {e}"
+                "Error procesando registro ERROR",
+                extra={
+                    "ref_externa": reg_error.ref_externa,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
             )
 
     def _marcar_todos_registros_error(self, lote: LoteEnvio, error: str) -> None:
@@ -376,14 +448,18 @@ class ProcessLoteService:
         )
 
         logger.warning(
-            f"Todos los registros del lote {lote.id} marcados como ERROR: {error}"
+            "Todos los registros del lote marcados como ERROR",
+            extra={
+                "lote_id": str(lote.id),
+                "error": error,
+            },
         )
 
     def _actualizar_instalacion_control_flujo(
         self, lote: LoteEnvio, tiempo_espera: int
     ) -> None:
         """
-        ✅ CRÍTICO: Actualiza instalación para control de flujo.
+        CRÍTICO: Actualiza instalación para control de flujo.
 
         Estos campos controlan el próximo envío:
         - ultimo_envio_at: timestamp del envío
@@ -403,9 +479,12 @@ class ProcessLoteService:
         )
 
         logger.info(
-            f"✅ Instalación {lote.instalacion_sif_id} actualizada: "
-            f"ultimo_envio_at={ahora.isoformat()}, "
-            f"ultimo_tiempo_espera={tiempo_espera}s"
+            "Instalación actualizada con control de flujo",
+            extra={
+                "instalacion_id": lote.instalacion_sif_id,
+                "ultimo_envio_at": ahora.isoformat(),
+                "ultimo_tiempo_espera": tiempo_espera,
+            },
         )
 
 

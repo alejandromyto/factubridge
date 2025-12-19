@@ -46,9 +46,9 @@ def scheduler_envios_ligero() -> None:
 
     Ejecutar: Cada 5 minutos vía Celery Beat
     """
-    correlation_id = str(uuid4())  # Genera un ID único para este flujo
+    correlation_id = str(uuid4())
     set_correlation_id(correlation_id)
-    logger.info(f"Scheduler iniciado | correlation_id={correlation_id}")
+    logger.info("Scheduler ligero iniciado")
 
     stats = {
         "total": 0,
@@ -61,7 +61,10 @@ def scheduler_envios_ligero() -> None:
         instalaciones = db.scalars(select(InstalacionSIF)).all()
         stats["total"] = len(instalaciones)
 
-        logger.info(f"Evaluando {stats['total']} instalaciones")
+        logger.info(
+            "Evaluando instalaciones activas",
+            extra={"total_instalaciones": stats["total"]},
+        )
 
         # Servicio para evaluación de control de flujo (solo lectura)
         servicio = LoteService(db)
@@ -81,22 +84,35 @@ def scheduler_envios_ligero() -> None:
                     )
                     stats["encoladas"] += 1
 
-                    logger.info(f"📤 Instalación {ins.id} encolada para orquestación")
+                    logger.info(
+                        "Instalación encolada para orquestación",
+                        extra={"instalacion_id": ins.id},
+                    )
                 else:
                     stats["sin_condiciones"] += 1
-                    logger.debug(f"Instalación {ins.id} sin condiciones (skip)")
+                    logger.debug(
+                        "Instalación no cumple condiciones, omitida",
+                        extra={"instalacion_id": ins.id},
+                    )
 
             except Exception as e:
                 # Error en evaluación: log y continuar
                 logger.error(
-                    f"Error evaluando instalación {ins.id}: {e}",
+                    "Error evaluando instalación",
+                    extra={
+                        "instalacion_id": ins.id,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
                     exc_info=True,
                 )
                 continue
 
     logger.info(
-        f"=== Scheduler ligero completado === | "
-        f"Total: {stats['total']} | "
-        f"Encoladas: {stats['encoladas']} | "
-        f"Sin condiciones: {stats['sin_condiciones']}"
+        "Scheduler ligero completado",
+        extra={
+            "total_instalaciones": stats["total"],
+            "encoladas": stats["encoladas"],
+            "sin_condiciones": stats["sin_condiciones"],
+        },
     )

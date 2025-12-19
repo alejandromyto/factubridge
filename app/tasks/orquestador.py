@@ -55,12 +55,15 @@ def adquirir_lock_instalacion(instalacion_id: int) -> Optional[RedisLock]:
 
     if not acquired:
         logger.debug(
-            f"Lock para instalación {instalacion_id} no disponible "
-            f"(otro worker procesándola)"
+            "Lock no disponible, otro worker procesando instalación",
+            extra={"instalacion_id": instalacion_id},
         )
         return None
 
-    logger.debug(f"Lock adquirido para instalación {instalacion_id}")
+    logger.debug(
+        "Lock adquirido para instalación",
+        extra={"instalacion_id": instalacion_id},
+    )
     return lock
 
 
@@ -93,8 +96,8 @@ def orquestar_instalacion(
     set_correlation_id(correlation_id)
 
     logger.info(
-        f"Orquestando instalación {instalacion_sif_id}"
-        f" | correlation_id={correlation_id}"
+        "Orquestación de instalación iniciada",
+        extra={"instalacion_id": instalacion_sif_id},
     )
 
     lock: Optional[RedisLock] = None
@@ -106,8 +109,8 @@ def orquestar_instalacion(
 
         if not lock:
             logger.info(
-                f"⏭️ Instalación {instalacion_sif_id} bloqueada, "
-                f"otro worker la está procesando (skip)"
+                "Instalación bloqueada, otro worker procesándola",
+                extra={"instalacion_id": instalacion_sif_id},
             )
             return  # No es error, simplemente ya está siendo procesada
 
@@ -116,8 +119,8 @@ def orquestar_instalacion(
 
         if not servicio_lote.control_flujo(instalacion_sif_id, max_registros=1000):
             logger.info(
-                f"⏭️ Instalación {instalacion_sif_id} ya no cumple condiciones "
-                f"(cambió entre scheduler y orquestador)"
+                "Instalación no cumple condiciones tras verificación en lock",
+                extra={"instalacion_id": instalacion_sif_id},
             )
             return  # Condiciones cambiaron, skip sin error
 
@@ -128,34 +131,53 @@ def orquestar_instalacion(
 
         if not lote:
             logger.info(
-                f"⏭️ Instalación {instalacion_sif_id} no generó lote "
-                f"(sin registros disponibles)"
+                "Instalación no generó lote, sin registros disponibles",
+                extra={"instalacion_id": instalacion_sif_id},
             )
             return  # Sin registros, skip sin error
 
         logger.info(
-            f"Lote {lote.id} creado (flush) para instalación {instalacion_sif_id}"
+            "Lote creado con flush pendiente de commit",
+            extra={
+                "lote_id": str(lote.id),
+                "instalacion_id": instalacion_sif_id,
+            },
         )
 
         # PASO 4: Crear evento outbox (flush, NO commit)
         servicio_outbox = OutboxService(db)
         evento = servicio_outbox.crear_evento(lote, correlation_id=correlation_id)
 
-        logger.info(f"Evento outbox {evento.id} creado (flush) para lote {lote.id}")
+        logger.info(
+            "Evento outbox creado con flush pendiente de commit",
+            extra={
+                "evento_id": evento.id,
+                "lote_id": str(lote.id),
+            },
+        )
 
-        # PASO 5: ✅ COMMIT ATÓMICO (lote + evento en MISMA transacción)
+        # PASO 5: COMMIT ATÓMICO (lote + evento en MISMA transacción)
         db.commit()
 
         logger.info(
-            f"✅ COMMIT EXITOSO: Lote {lote.id} + Evento {evento.id} "
-            f"persistidos atómicamente (instalación {instalacion_sif_id})"
+            "COMMIT EXITOSO: Lote y evento persistidos atómicamente",
+            extra={
+                "lote_id": str(lote.id),
+                "evento_id": evento.id,
+                "instalacion_id": instalacion_sif_id,
+            },
         )
 
     except SQLAlchemyError as e:
         # Error de BD: rollback y reintentar
         db.rollback()
         logger.error(
-            f"❌ Error de BD al orquestar instalación {instalacion_sif_id}: {e}",
+            "Error de base de datos al orquestar instalación",
+            extra={
+                "instalacion_id": instalacion_sif_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
             exc_info=True,
         )
 
@@ -166,7 +188,12 @@ def orquestar_instalacion(
         # Error inesperado: rollback y reintentar
         db.rollback()
         logger.error(
-            f"❌ Error inesperado al orquestar instalación {instalacion_sif_id}: {e}",
+            "Error inesperado al orquestar instalación",
+            extra={
+                "instalacion_id": instalacion_sif_id,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            },
             exc_info=True,
         )
 
@@ -178,11 +205,21 @@ def orquestar_instalacion(
         if lock:
             try:
                 lock.release()
-                logger.debug(f"Lock liberado para instalación {instalacion_sif_id}")
+                logger.debug(
+                    "Lock liberado para instalación",
+                    extra={"instalacion_id": instalacion_sif_id},
+                )
             except Exception as e:
                 logger.warning(
-                    f"Error al liberar lock para instalación {instalacion_sif_id}: {e}"
+                    "Error al liberar lock para instalación",
+                    extra={
+                        "instalacion_id": instalacion_sif_id,
+                        "error": str(e),
+                    },
                 )
 
         db.close()
-        logger.debug(f"Sesión cerrada para instalación {instalacion_sif_id}")
+        logger.debug(
+            "Sesión de base de datos cerrada",
+            extra={"instalacion_id": instalacion_sif_id},
+        )

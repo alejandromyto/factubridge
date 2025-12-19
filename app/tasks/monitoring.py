@@ -33,7 +33,7 @@ def detector_atasco_dispatcher() -> None:
 
     Ejecutar: Cada 1 minuto vía Celery Beat
     """
-    logger.info("=== Detector de atasco iniciado ===")
+    logger.info("Detector de atasco iniciado")
 
     umbral_tiempo = datetime.now(timezone.utc) - timedelta(minutes=2)
 
@@ -47,12 +47,14 @@ def detector_atasco_dispatcher() -> None:
         )
 
         if count_atascados and count_atascados > 0:
-            # ⚠️ ALERTA CRÍTICA: Dispatcher atascado
+            # ALERTA CRÍTICA: Dispatcher atascado
             logger.critical(
-                f"⚠️⚠️⚠️ ALERTA CRÍTICA: {count_atascados} eventos pendientes "
-                f"desde hace más de 2 minutos. "
-                f"El dispatcher puede estar detenido. "
-                f"ACCIÓN REQUERIDA: Revisar worker 'dispatcher' y logs."
+                "ALERTA CRÍTICA: Dispatcher puede estar detenido",
+                extra={
+                    "eventos_atascados": count_atascados,
+                    "umbral_minutos": 2,
+                    "accion_requerida": "Revisar worker 'dispatcher' y logs",
+                },
             )
 
             # TODO: Integrar con sistema de alertas
@@ -73,11 +75,21 @@ def detector_atasco_dispatcher() -> None:
             ).all()
 
             logger.critical(
-                f"Primeros eventos atascados: "
-                f"{[(e.id, e.lote_id, e.created_at) for e in eventos_atascados]}"
+                "Primeros eventos atascados identificados",
+                extra={
+                    "eventos": [
+                        {
+                            "id": e.id,
+                            "lote_id": str(e.lote_id),
+                            "instalacion_id": e.instalacion_sif_id,
+                            "created_at": e.created_at.isoformat(),
+                        }
+                        for e in eventos_atascados
+                    ]
+                },
             )
         else:
-            logger.debug("✅ Dispatcher funcionando correctamente (sin atasco)")
+            logger.debug("Dispatcher funcionando correctamente sin atasco")
 
 
 @typed_task()
@@ -90,7 +102,7 @@ def alertar_eventos_error() -> None:
 
     Ejecutar: Cada 10 minutos vía Celery Beat
     """
-    logger.info("=== Revisor de eventos en error ===")
+    logger.info("Revisor de eventos en error iniciado")
 
     with get_sync_db() as db:
         # Contar eventos en error
@@ -100,8 +112,11 @@ def alertar_eventos_error() -> None:
 
         if count_errores and count_errores > 0:
             logger.warning(
-                f"⚠️ {count_errores} eventos en estado ERROR "
-                f"(fallaron después de reintentos)"
+                "Eventos en estado ERROR detectados",
+                extra={
+                    "count_errores": count_errores,
+                    "descripcion": "Fallaron después de reintentos",
+                },
             )
 
             # Obtener eventos en error
@@ -114,17 +129,21 @@ def alertar_eventos_error() -> None:
 
             for evento in eventos_error:
                 logger.error(
-                    f"Evento {evento.id} en ERROR: lote={evento.lote_id}, "
-                    f"instalacion={evento.instalacion_sif_id}, "
-                    f"intentos={evento.intentos}/{evento.max_intentos}, "
-                    f"error={evento.error_mensaje}"
+                    "Evento en ERROR requiere intervención manual",
+                    extra={
+                        "evento_id": evento.id,
+                        "lote_id": str(evento.lote_id),
+                        "instalacion_id": evento.instalacion_sif_id,
+                        "intentos": f"{evento.intentos}/{evento.max_intentos}",
+                        "error_mensaje": evento.error_mensaje,
+                    },
                 )
 
             # TODO: Integrar con sistema de alertas
             # - Crear ticket en sistema de tracking
             # - Enviar resumen diario al equipo
         else:
-            logger.debug("✅ No hay eventos en estado ERROR")
+            logger.debug("No hay eventos en estado ERROR")
 
 
 @typed_task
@@ -139,7 +158,7 @@ def estadisticas_salud_outbox() -> dict:
 
     Ejecutar: Cada 5 minutos vía Celery Beat (opcional)
     """
-    logger.info("=== Generando estadísticas de salud ===")
+    logger.info("Generando estadísticas de salud del sistema outbox")
 
     with get_sync_db() as db:
         # Contar por estado
@@ -168,7 +187,10 @@ def estadisticas_salud_outbox() -> dict:
         # Total de eventos (histórico)
         stats["total_eventos"] = sum(stats.values())
 
-        logger.info(f"Estadísticas outbox: {stats}")
+        logger.info(
+            "Estadísticas de salud del sistema outbox generadas",
+            extra={"estadisticas": stats},
+        )
 
         # TODO: Enviar a sistema de métricas
         # - Prometheus: push_gateway
