@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from xsdata.models.datatype import XmlDateTime
 
@@ -35,7 +36,7 @@ from app.infrastructure.aeat.models.suministro_informacion import (
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd"
 
 
-class EstadoRegistroType(Enum):
+class EstadoRegistroType(str, Enum):
     """
     :cvar CORRECTO: El registro se almacenado sin errores
     :cvar ACEPTADO_CON_ERRORES: El registro se almacenado tiene algunos
@@ -48,17 +49,17 @@ class EstadoRegistroType(Enum):
     ANULADO = "Anulado"
 
 
-class IndicadorPaginacionType(Enum):
+class IndicadorPaginacionType(str, Enum):
     S = "S"
     N = "N"
 
 
-class ResultadoConsultaType(Enum):
+class ResultadoConsultaType(str, Enum):
     CON_DATOS = "ConDatos"
     SIN_DATOS = "SinDatos"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class EstadoRegFactuType:
     """
     :ivar timestamp_ultima_modificacion:
@@ -70,25 +71,23 @@ class EstadoRegFactuType:
         registro, en su caso.
     """
 
-    timestamp_ultima_modificacion: Optional[XmlDateTime] = field(
-        default=None,
+    timestamp_ultima_modificacion: XmlDateTime = field(
         metadata={
             "name": "TimestampUltimaModificacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    estado_registro: Optional[EstadoRegistroType] = field(
-        default=None,
+    estado_registro: EstadoRegistroType = field(
         metadata={
             "name": "EstadoRegistro",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    codigo_error_registro: Optional[int] = field(
+    codigo_error_registro: None | int = field(
         default=None,
         metadata={
             "name": "CodigoErrorRegistro",
@@ -96,7 +95,7 @@ class EstadoRegFactuType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    descripcion_error_registro: Optional[str] = field(
+    descripcion_error_registro: None | str = field(
         default=None,
         metadata={
             "name": "DescripcionErrorRegistro",
@@ -107,54 +106,49 @@ class EstadoRegFactuType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaConsultaType:
-    cabecera: Optional[CabeceraConsultaSf] = field(
-        default=None,
+    cabecera: CabeceraConsultaSf = field(
         metadata={
             "name": "Cabecera",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    periodo_imputacion: Optional["RespuestaConsultaType.PeriodoImputacion"] = field(
-        default=None,
+    periodo_imputacion: RespuestaConsultaType.PeriodoImputacion = field(
         metadata={
             "name": "PeriodoImputacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    indicador_paginacion: Optional[IndicadorPaginacionType] = field(
-        default=None,
+    indicador_paginacion: IndicadorPaginacionType = field(
         metadata={
             "name": "IndicadorPaginacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    resultado_consulta: Optional[ResultadoConsultaType] = field(
-        default=None,
+    resultado_consulta: ResultadoConsultaType = field(
         metadata={
             "name": "ResultadoConsulta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class PeriodoImputacion:
-        """Período al que corresponden los apuntes.
-
-        todos los apuntes deben corresponder al mismo período impositivo
+        """
+        Período al que corresponden los apuntes. todos los apuntes deben
+        corresponder al mismo período impositivo.
         """
 
-        ejercicio: Optional[str] = field(
-            default=None,
+        ejercicio: str = field(
             metadata={
                 "name": "Ejercicio",
                 "type": "Element",
@@ -162,20 +156,19 @@ class RespuestaConsultaType:
                 "required": True,
                 "length": 4,
                 "pattern": r"\d{4,4}",
-            },
+            }
         )
-        periodo: Optional[TipoPeriodoType] = field(
-            default=None,
+        periodo: TipoPeriodoType = field(
             metadata={
                 "name": "Periodo",
                 "type": "Element",
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
                 "required": True,
-            },
+            }
         )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaDatosRegistroFacturacionType:
     """
     Apunte correspondiente al libro de facturas expedidas.
@@ -220,7 +213,7 @@ class RespuestaDatosRegistroFacturacionType:
     :ivar incidencia:
     """
 
-    nombre_razon_emisor: Optional[str] = field(
+    nombre_razon_emisor: None | str = field(
         default=None,
         metadata={
             "name": "NombreRazonEmisor",
@@ -229,7 +222,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 120,
         },
     )
-    ref_externa: Optional[str] = field(
+    ref_externa: None | str = field(
         default=None,
         metadata={
             "name": "RefExterna",
@@ -238,7 +231,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 60,
         },
     )
-    subsanacion: Optional[SubsanacionType] = field(
+    subsanacion: None | SubsanacionType = field(
         default=None,
         metadata={
             "name": "Subsanacion",
@@ -246,7 +239,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    rechazo_previo: Optional[RechazoPrevioType] = field(
+    rechazo_previo: None | RechazoPrevioType = field(
         default=None,
         metadata={
             "name": "RechazoPrevio",
@@ -254,7 +247,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    sin_registro_previo: Optional[SinRegistroPrevioType] = field(
+    sin_registro_previo: None | SinRegistroPrevioType = field(
         default=None,
         metadata={
             "name": "SinRegistroPrevio",
@@ -262,7 +255,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    generado_por: Optional[GeneradoPorType] = field(
+    generado_por: None | GeneradoPorType = field(
         default=None,
         metadata={
             "name": "GeneradoPor",
@@ -270,7 +263,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    generador: Optional[PersonaFisicaJuridicaType] = field(
+    generador: None | PersonaFisicaJuridicaType = field(
         default=None,
         metadata={
             "name": "Generador",
@@ -278,7 +271,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    tipo_factura: Optional[ClaveTipoFacturaType] = field(
+    tipo_factura: None | ClaveTipoFacturaType = field(
         default=None,
         metadata={
             "name": "TipoFactura",
@@ -286,7 +279,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    tipo_rectificativa: Optional[ClaveTipoRectificativaType] = field(
+    tipo_rectificativa: None | ClaveTipoRectificativaType = field(
         default=None,
         metadata={
             "name": "TipoRectificativa",
@@ -294,9 +287,9 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    facturas_rectificadas: Optional[
-        "RespuestaDatosRegistroFacturacionType.FacturasRectificadas"
-    ] = field(
+    facturas_rectificadas: (
+        None | RespuestaDatosRegistroFacturacionType.FacturasRectificadas
+    ) = field(
         default=None,
         metadata={
             "name": "FacturasRectificadas",
@@ -304,9 +297,9 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    facturas_sustituidas: Optional[
-        "RespuestaDatosRegistroFacturacionType.FacturasSustituidas"
-    ] = field(
+    facturas_sustituidas: (
+        None | RespuestaDatosRegistroFacturacionType.FacturasSustituidas
+    ) = field(
         default=None,
         metadata={
             "name": "FacturasSustituidas",
@@ -314,7 +307,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    importe_rectificacion: Optional[DesgloseRectificacionType] = field(
+    importe_rectificacion: None | DesgloseRectificacionType = field(
         default=None,
         metadata={
             "name": "ImporteRectificacion",
@@ -322,7 +315,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    fecha_operacion: Optional[str] = field(
+    fecha_operacion: None | str = field(
         default=None,
         metadata={
             "name": "FechaOperacion",
@@ -332,7 +325,7 @@ class RespuestaDatosRegistroFacturacionType:
             "pattern": r"\d{2,2}-\d{2,2}-\d{4,4}",
         },
     )
-    descripcion_operacion: Optional[str] = field(
+    descripcion_operacion: None | str = field(
         default=None,
         metadata={
             "name": "DescripcionOperacion",
@@ -341,7 +334,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 500,
         },
     )
-    factura_simplificada_art7273: Optional[SimplificadaCualificadaType] = field(
+    factura_simplificada_art7273: None | SimplificadaCualificadaType = field(
         default=None,
         metadata={
             "name": "FacturaSimplificadaArt7273",
@@ -349,17 +342,15 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    factura_sin_identif_destinatario_art61d: Optional[CompletaSinDestinatarioType] = (
-        field(
-            default=None,
-            metadata={
-                "name": "FacturaSinIdentifDestinatarioArt61d",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
-            },
-        )
+    factura_sin_identif_destinatario_art61d: None | CompletaSinDestinatarioType = field(
+        default=None,
+        metadata={
+            "name": "FacturaSinIdentifDestinatarioArt61d",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
+        },
     )
-    macrodato: Optional[MacrodatoType] = field(
+    macrodato: None | MacrodatoType = field(
         default=None,
         metadata={
             "name": "Macrodato",
@@ -367,7 +358,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    emitida_por_tercero_odestinatario: Optional[TercerosOdestinatarioType] = field(
+    emitida_por_tercero_odestinatario: None | TercerosOdestinatarioType = field(
         default=None,
         metadata={
             "name": "EmitidaPorTerceroODestinatario",
@@ -375,7 +366,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    tercero: Optional[PersonaFisicaJuridicaType] = field(
+    tercero: None | PersonaFisicaJuridicaType = field(
         default=None,
         metadata={
             "name": "Tercero",
@@ -383,17 +374,15 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    destinatarios: Optional["RespuestaDatosRegistroFacturacionType.Destinatarios"] = (
-        field(
-            default=None,
-            metadata={
-                "name": "Destinatarios",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
-            },
-        )
+    destinatarios: None | RespuestaDatosRegistroFacturacionType.Destinatarios = field(
+        default=None,
+        metadata={
+            "name": "Destinatarios",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
+        },
     )
-    cupon: Optional[CuponType] = field(
+    cupon: None | CuponType = field(
         default=None,
         metadata={
             "name": "Cupon",
@@ -401,7 +390,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    desglose: Optional[DesgloseType] = field(
+    desglose: None | DesgloseType = field(
         default=None,
         metadata={
             "name": "Desglose",
@@ -409,7 +398,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    cuota_total: Optional[str] = field(
+    cuota_total: None | str = field(
         default=None,
         metadata={
             "name": "CuotaTotal",
@@ -418,7 +407,7 @@ class RespuestaDatosRegistroFacturacionType:
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
         },
     )
-    importe_total: Optional[str] = field(
+    importe_total: None | str = field(
         default=None,
         metadata={
             "name": "ImporteTotal",
@@ -427,17 +416,15 @@ class RespuestaDatosRegistroFacturacionType:
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
         },
     )
-    encadenamiento: Optional["RespuestaDatosRegistroFacturacionType.Encadenamiento"] = (
-        field(
-            default=None,
-            metadata={
-                "name": "Encadenamiento",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
-            },
-        )
+    encadenamiento: None | RespuestaDatosRegistroFacturacionType.Encadenamiento = field(
+        default=None,
+        metadata={
+            "name": "Encadenamiento",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
+        },
     )
-    sistema_informatico: Optional[SistemaInformaticoType] = field(
+    sistema_informatico: None | SistemaInformaticoType = field(
         default=None,
         metadata={
             "name": "SistemaInformatico",
@@ -445,7 +432,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    fecha_hora_huso_gen_registro: Optional[XmlDateTime] = field(
+    fecha_hora_huso_gen_registro: None | XmlDateTime = field(
         default=None,
         metadata={
             "name": "FechaHoraHusoGenRegistro",
@@ -453,7 +440,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    num_registro_acuerdo_facturacion: Optional[str] = field(
+    num_registro_acuerdo_facturacion: None | str = field(
         default=None,
         metadata={
             "name": "NumRegistroAcuerdoFacturacion",
@@ -462,7 +449,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 15,
         },
     )
-    id_acuerdo_sistema_informatico: Optional[str] = field(
+    id_acuerdo_sistema_informatico: None | str = field(
         default=None,
         metadata={
             "name": "IdAcuerdoSistemaInformatico",
@@ -471,7 +458,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 16,
         },
     )
-    tipo_huella: Optional[TipoHuellaType] = field(
+    tipo_huella: None | TipoHuellaType = field(
         default=None,
         metadata={
             "name": "TipoHuella",
@@ -479,7 +466,7 @@ class RespuestaDatosRegistroFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    huella: Optional[str] = field(
+    huella: None | str = field(
         default=None,
         metadata={
             "name": "Huella",
@@ -488,7 +475,7 @@ class RespuestaDatosRegistroFacturacionType:
             "max_length": 64,
         },
     )
-    nif_representante: Optional[str] = field(
+    nif_representante: None | str = field(
         default=None,
         metadata={
             "name": "NifRepresentante",
@@ -497,7 +484,7 @@ class RespuestaDatosRegistroFacturacionType:
             "length": 9,
         },
     )
-    fecha_fin_veri_factu: Optional[str] = field(
+    fecha_fin_veri_factu: None | str = field(
         default=None,
         metadata={
             "name": "FechaFinVeriFactu",
@@ -507,7 +494,7 @@ class RespuestaDatosRegistroFacturacionType:
             "pattern": r"\d{2,2}-\d{2,2}-\d{4,4}",
         },
     )
-    incidencia: Optional[IncidenciaType] = field(
+    incidencia: None | IncidenciaType = field(
         default=None,
         metadata={
             "name": "Incidencia",
@@ -516,11 +503,11 @@ class RespuestaDatosRegistroFacturacionType:
         },
     )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class FacturasRectificadas:
         """
-        El ID de las facturas rectificadas, únicamente se rellena en el caso de
-        rectificación de facturas.
+        El ID de las facturas rectificadas, únicamente se rellena en el
+        caso de rectificación de facturas.
         """
 
         idfactura_rectificada: list[IdfacturaArtype] = field(
@@ -534,11 +521,11 @@ class RespuestaDatosRegistroFacturacionType:
             },
         )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class FacturasSustituidas:
         """
-        El ID de las facturas sustituidas, únicamente se rellena en el caso de facturas
-        sustituidas.
+        El ID de las facturas sustituidas, únicamente se rellena en el caso
+        de facturas sustituidas.
         """
 
         idfactura_sustituida: list[IdfacturaArtype] = field(
@@ -552,11 +539,12 @@ class RespuestaDatosRegistroFacturacionType:
             },
         )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class Destinatarios:
-        """Contraparte de la operación.
+        """
+        Contraparte de la operación.
 
-        Cliente
+        Cliente.
         """
 
         iddestinatario: list[PersonaFisicaJuridicaType] = field(
@@ -570,9 +558,9 @@ class RespuestaDatosRegistroFacturacionType:
             },
         )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class Encadenamiento:
-        primer_registro: Optional[PrimerRegistroCadenaType] = field(
+        primer_registro: None | PrimerRegistroCadenaType = field(
             default=None,
             metadata={
                 "name": "PrimerRegistro",
@@ -580,7 +568,7 @@ class RespuestaDatosRegistroFacturacionType:
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             },
         )
-        registro_anterior: Optional[EncadenamientoFacturaAnteriorType] = field(
+        registro_anterior: None | EncadenamientoFacturaAnteriorType = field(
             default=None,
             metadata={
                 "name": "RegistroAnterior",
@@ -590,27 +578,25 @@ class RespuestaDatosRegistroFacturacionType:
         )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegistroRespuestaConsultaRegFacturacionType:
-    idfactura: Optional[IdfacturaExpedidaType] = field(
-        default=None,
+    idfactura: IdfacturaExpedidaType = field(
         metadata={
             "name": "IDFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    datos_registro_facturacion: Optional[RespuestaDatosRegistroFacturacionType] = field(
-        default=None,
+    datos_registro_facturacion: RespuestaDatosRegistroFacturacionType = field(
         metadata={
             "name": "DatosRegistroFacturacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    datos_presentacion: Optional[DatosPresentacion2Type] = field(
+    datos_presentacion: None | DatosPresentacion2Type = field(
         default=None,
         metadata={
             "name": "DatosPresentacion",
@@ -618,18 +604,17 @@ class RegistroRespuestaConsultaRegFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
         },
     )
-    estado_registro: Optional[EstadoRegFactuType] = field(
-        default=None,
+    estado_registro: EstadoRegFactuType = field(
         metadata={
             "name": "EstadoRegistro",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaConsultaFactuSistemaFacturacionType(RespuestaConsultaType):
     registro_respuesta_consulta_factu_sistema_facturacion: list[
         RegistroRespuestaConsultaRegFacturacionType
@@ -642,7 +627,7 @@ class RespuestaConsultaFactuSistemaFacturacionType(RespuestaConsultaType):
             "max_occurs": 10000,
         },
     )
-    clave_paginacion: Optional[IdfacturaExpedidaBctype] = field(
+    clave_paginacion: None | IdfacturaExpedidaBctype = field(
         default=None,
         metadata={
             "name": "ClavePaginacion",
@@ -652,7 +637,7 @@ class RespuestaConsultaFactuSistemaFacturacionType(RespuestaConsultaType):
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaConsultaFactuSistemaFacturacion(
     RespuestaConsultaFactuSistemaFacturacionType
 ):

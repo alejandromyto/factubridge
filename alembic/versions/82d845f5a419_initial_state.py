@@ -1,8 +1,8 @@
 """initial state
 
-Revision ID: ef63ad561de7
+Revision ID: 82d845f5a419
 Revises:
-Create Date: 2025-12-10 03:46:36.152912
+Create Date: 2025-12-20 03:59:08.104606
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "ef63ad561de7"
+revision: str = "82d845f5a419"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -185,9 +185,9 @@ def upgrade() -> None:
                 "Incorrecto",
                 "Error",
                 "ErrorReintentable",
-                name="chk_estado_lote_envio_type",
+                name="chk_estado_lote_envio",
             ),
-            server_default="Creado",
+            server_default=sa.text("'Creado'"),
             nullable=False,
         ),
         sa.Column(
@@ -195,8 +195,8 @@ def upgrade() -> None:
             sa.String(length=64),
             nullable=True,
             comment=(
-                "Código Seguro de Verificación devuelto por AEAT "
-                "(NULL si todos rechazados)"
+                "Código Seguro de Verificación devuelto por AEAT (NULL si todos "
+                "rechazados)"
             ),
         ),
         sa.Column(
@@ -240,13 +240,13 @@ def upgrade() -> None:
         sa.Column(
             "estado",
             sa.Enum(
-                "pendiente",
-                "encolado",
-                "procesado",
-                "error",
-                name="chk_estado_outbox_event_type",
+                "Pendiente",
+                "Encolado",
+                "Procesado",
+                "Error",
+                name="chk_estado_outbox_event",
             ),
-            server_default="pendiente",
+            server_default="Pendiente",
             nullable=False,
         ),
         sa.Column("task_name", sa.String(), nullable=False),
@@ -283,7 +283,7 @@ def upgrade() -> None:
         "outbox_event",
         ["created_at", "id"],
         unique=False,
-        postgresql_where=sa.text("estado = 'pendiente'"),
+        postgresql_where=sa.text("estado = 'Pendiente'"),
     )
     op.create_index(
         op.f("ix_outbox_event_created_at"), "outbox_event", ["created_at"], unique=False
@@ -318,9 +318,23 @@ def upgrade() -> None:
         sa.Column("fecha_operacion", sa.Date(), nullable=True),
         sa.Column("destinatario_nif", sa.String(length=20), nullable=True),
         sa.Column("destinatario_nombre", sa.String(length=255), nullable=True),
-        sa.Column("tipo_factura", sa.String(length=10), nullable=False),
-        sa.Column("tipo_rectificativa", sa.String(length=1), nullable=True),
-        sa.Column("operacion", sa.String(length=255), nullable=False),
+        sa.Column(
+            "tipo_factura",
+            sa.Enum(
+                "F1", "F2", "F3", "R1", "R2", "R3", "R4", "R5", name="chk_tipo_factura"
+            ),
+            nullable=False,
+        ),
+        sa.Column(
+            "tipo_rectificativa",
+            sa.Enum("S", "I", name="chk_tipo_rectificativa"),
+            nullable=True,
+        ),
+        sa.Column(
+            "tipo_operacion",
+            sa.Enum("Alta", "Anulacion", name="chk_tipo_operacion"),
+            nullable=False,
+        ),
         sa.Column("descripcion", sa.String(length=500), nullable=True),
         sa.Column("importe_total", sa.DECIMAL(precision=15, scale=2), nullable=False),
         sa.Column("cuota_total", sa.DECIMAL(precision=15, scale=2), nullable=False),
@@ -337,23 +351,28 @@ def upgrade() -> None:
         sa.Column(
             "estado",
             sa.Enum(
-                "pendiente",
-                "encolado",
-                "correcto",
-                "aceptado_con_errores",
-                "incorrecto",
-                "duplicado",
-                "anulado",
-                "factura_inexistente",
-                "no_registrado",
-                "error_servidor_aeat",
-                name="chk_estado_registro_type",
+                "Pendiente",
+                "Encolado",
+                "Correcto",
+                "AceptadoConErrores",
+                "Incorrecto",
+                "Duplicado",
+                "Anulado",
+                "FacturaInexistente",
+                "NoRegistrado",
+                "ErrorServidorAeat",
+                name="chk_estado_registro",
             ),
-            server_default="pendiente",
+            server_default=sa.text("'Pendiente'"),
             nullable=False,
         ),
         sa.Column("xml_generado", sa.Text(), nullable=True),
-        sa.Column("xml_respuesta", sa.Text(), nullable=True),
+        sa.Column(
+            "xml_respuesta_aeat",
+            sa.Text(),
+            nullable=True,
+            comment="XML de RespuestaLinea de AEAT para este registro específico",
+        ),
         sa.Column(
             "respuesta_aeat", postgresql.JSONB(astext_type=sa.Text()), nullable=True
         ),
@@ -374,7 +393,7 @@ def upgrade() -> None:
                 "Correcta",
                 "AceptadaConErrores",
                 "Anulada",
-                name="chk_estado_duplicado_aeat_type",
+                name="chk_estado_duplicado_aeat",
             ),
             nullable=True,
         ),
@@ -453,11 +472,30 @@ def upgrade() -> None:
         ["lote_envio_id"],
         unique=False,
     )
+    op.create_index(
+        op.f("ix_registro_facturacion_tipo_factura"),
+        "registro_facturacion",
+        ["tipo_factura"],
+        unique=False,
+    )
+    op.create_index(
+        op.f("ix_registro_facturacion_tipo_operacion"),
+        "registro_facturacion",
+        ["tipo_operacion"],
+        unique=False,
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(
+        op.f("ix_registro_facturacion_tipo_operacion"),
+        table_name="registro_facturacion",
+    )
+    op.drop_index(
+        op.f("ix_registro_facturacion_tipo_factura"), table_name="registro_facturacion"
+    )
     op.drop_index(
         op.f("ix_registro_facturacion_lote_envio_id"), table_name="registro_facturacion"
     )

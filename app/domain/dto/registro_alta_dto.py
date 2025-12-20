@@ -48,7 +48,7 @@ class RegistroAltaDTO:
     facturas_sustituidas: Optional[FacturasSustituidasInput]
 
     # Contenido económico
-    operacion: str
+    tipo_operacion: str
     descripcion: str
     importe_total: Decimal
     cuota_total: Decimal
@@ -115,7 +115,7 @@ class RegistroAltaDTO:
             importe_rectificativa=importe_rectificativa,
             facturas_rectificadas=facturas_rectificadas,
             facturas_sustituidas=facturas_sustituidas,
-            operacion=r.operacion,
+            tipo_operacion=r.tipo_operacion,
             descripcion=r.descripcion if r.descripcion else "Factura Normal",
             importe_total=r.importe_total,
             cuota_total=r.cuota_total,

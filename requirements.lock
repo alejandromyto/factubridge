@@ -75,5 +75,5 @@ wcwidth==0.2.14
 websockets==15.0.1
 wrapt==2.0.1
 xmlschema==4.2.0
-xsdata==25.7
+xsdata==26.1
 zeep==4.3.2

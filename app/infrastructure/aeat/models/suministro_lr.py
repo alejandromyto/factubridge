@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 from app.infrastructure.aeat.models.suministro_informacion import (
     CabeceraType,
@@ -10,13 +11,13 @@ from app.infrastructure.aeat.models.suministro_informacion import (
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegistroFacturaType:
     """
     Datos correspondientes a los registros de facturacion.
     """
 
-    registro_alta: Optional[RegistroAlta] = field(
+    registro_alta: None | RegistroAlta = field(
         default=None,
         metadata={
             "name": "RegistroAlta",
@@ -24,7 +25,7 @@ class RegistroFacturaType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd",
         },
     )
-    registro_anulacion: Optional[RegistroAnulacion] = field(
+    registro_anulacion: None | RegistroAnulacion = field(
         default=None,
         metadata={
             "name": "RegistroAnulacion",
@@ -34,18 +35,17 @@ class RegistroFacturaType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegFactuSistemaFacturacion:
     class Meta:
         namespace = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd"
 
-    cabecera: Optional[CabeceraType] = field(
-        default=None,
+    cabecera: CabeceraType = field(
         metadata={
             "name": "Cabecera",
             "type": "Element",
             "required": True,
-        },
+        }
     )
     registro_factura: list[RegistroFacturaType] = field(
         default_factory=list,

@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from app.infrastructure.aeat.models.suministro_informacion import (
     IdfacturaExpedidaType,
@@ -10,7 +11,7 @@ from app.infrastructure.aeat.models.suministro_informacion import (
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaValRegistNoVeriFactu.xsd"
 
 
-class EstadoRegistroType(Enum):
+class EstadoRegistroType(str, Enum):
     """
     :cvar CORRECTO: Correcto
     :cvar ACEPTADO_CON_ERRORES: Aceptado con Errores. Ver detalle del
@@ -23,7 +24,7 @@ class EstadoRegistroType(Enum):
     INCORRECTO = "Incorrecto"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaRegType:
     """
     Respuesta a un envío.
@@ -38,25 +39,23 @@ class RespuestaRegType:
         registro, en su caso.
     """
 
-    idfactura: Optional[IdfacturaExpedidaType] = field(
-        default=None,
+    idfactura: IdfacturaExpedidaType = field(
         metadata={
             "name": "IDFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaValRegistNoVeriFactu.xsd",
             "required": True,
-        },
+        }
     )
-    operacion: Optional[OperacionType] = field(
-        default=None,
+    operacion: OperacionType = field(
         metadata={
             "name": "Operacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaValRegistNoVeriFactu.xsd",
             "required": True,
-        },
+        }
     )
-    ref_externa: Optional[str] = field(
+    ref_externa: None | str = field(
         default=None,
         metadata={
             "name": "RefExterna",
@@ -65,16 +64,15 @@ class RespuestaRegType:
             "max_length": 60,
         },
     )
-    estado_registro: Optional[EstadoRegistroType] = field(
-        default=None,
+    estado_registro: EstadoRegistroType = field(
         metadata={
             "name": "EstadoRegistro",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaValRegistNoVeriFactu.xsd",
             "required": True,
-        },
+        }
     )
-    codigo_error_registro: Optional[int] = field(
+    codigo_error_registro: None | int = field(
         default=None,
         metadata={
             "name": "CodigoErrorRegistro",
@@ -82,7 +80,7 @@ class RespuestaRegType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaValRegistNoVeriFactu.xsd",
         },
     )
-    descripcion_error_registro: Optional[str] = field(
+    descripcion_error_registro: None | str = field(
         default=None,
         metadata={
             "name": "DescripcionErrorRegistro",
@@ -93,7 +91,7 @@ class RespuestaRegType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaValContenidoFactuSistemaFacturacionType:
     """
     :ivar descripcion_error_formato_xml: Error a nivel de formato XML
@@ -101,7 +99,7 @@ class RespuestaValContenidoFactuSistemaFacturacionType:
         del XML es correcto
     """
 
-    descripcion_error_formato_xml: Optional[str] = field(
+    descripcion_error_formato_xml: None | str = field(
         default=None,
         metadata={
             "name": "DescripcionErrorFormatoXML",
@@ -110,7 +108,7 @@ class RespuestaValContenidoFactuSistemaFacturacionType:
             "max_length": 1500,
         },
     )
-    respuesta_validacion: Optional[RespuestaRegType] = field(
+    respuesta_validacion: None | RespuestaRegType = field(
         default=None,
         metadata={
             "name": "RespuestaValidacion",
@@ -120,7 +118,7 @@ class RespuestaValContenidoFactuSistemaFacturacionType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaValContenidoFactuSistemaFacturacion(
     RespuestaValContenidoFactuSistemaFacturacionType
 ):

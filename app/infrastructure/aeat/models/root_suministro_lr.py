@@ -12,7 +12,7 @@ __NAMESPACE__ = (
 @dataclass
 class RegFactuSistemaFacturacionRoot:
     """
-    Root element para envío LR (creado manualmente).
+    Root element para envío LR (Generado automáticamente por script post-procesado).
 
     Este wrapper es necesario porque el XSD define el elemento root como
     un element anónimo, no como un tipo global. xsdata NO lo genera

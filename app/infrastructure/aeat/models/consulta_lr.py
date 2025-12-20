@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Optional
 
 from app.infrastructure.aeat.models.suministro_informacion import (
     CabeceraConsultaSf,
@@ -15,7 +16,7 @@ from app.infrastructure.aeat.models.suministro_informacion import (
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DatosAdicionalesRespuestaType:
     """
     :ivar mostrar_nombre_razon_emisor: Indicador que especifica si se
@@ -30,7 +31,7 @@ class DatosAdicionalesRespuestaType:
         ser 'N' o no estar cumplimentado
     """
 
-    mostrar_nombre_razon_emisor: Optional[MostrarNombreRazonEmisorType] = field(
+    mostrar_nombre_razon_emisor: None | MostrarNombreRazonEmisorType = field(
         default=None,
         metadata={
             "name": "MostrarNombreRazonEmisor",
@@ -38,7 +39,7 @@ class DatosAdicionalesRespuestaType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
         },
     )
-    mostrar_sistema_informatico: Optional[MostrarSistemaInformaticoType] = field(
+    mostrar_sistema_informatico: None | MostrarSistemaInformaticoType = field(
         default=None,
         metadata={
             "name": "MostrarSistemaInformatico",
@@ -48,7 +49,7 @@ class DatosAdicionalesRespuestaType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LrfiltroRegFacturacionType:
     """
     :ivar periodo_imputacion:
@@ -67,16 +68,15 @@ class LrfiltroRegFacturacionType:
     class Meta:
         name = "LRFiltroRegFacturacionType"
 
-    periodo_imputacion: Optional[PeriodoImputacionType] = field(
-        default=None,
+    periodo_imputacion: PeriodoImputacionType = field(
         metadata={
             "name": "PeriodoImputacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    num_serie_factura: Optional[str] = field(
+    num_serie_factura: None | str = field(
         default=None,
         metadata={
             "name": "NumSerieFactura",
@@ -86,7 +86,7 @@ class LrfiltroRegFacturacionType:
             "max_length": 60,
         },
     )
-    contraparte: Optional[ContraparteConsultaType] = field(
+    contraparte: None | ContraparteConsultaType = field(
         default=None,
         metadata={
             "name": "Contraparte",
@@ -94,7 +94,7 @@ class LrfiltroRegFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
         },
     )
-    fecha_expedicion_factura: Optional[FechaExpedicionConsultaType] = field(
+    fecha_expedicion_factura: None | FechaExpedicionConsultaType = field(
         default=None,
         metadata={
             "name": "FechaExpedicionFactura",
@@ -102,7 +102,7 @@ class LrfiltroRegFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
         },
     )
-    sistema_informatico: Optional[SistemaInformaticoConsultaType] = field(
+    sistema_informatico: None | SistemaInformaticoConsultaType = field(
         default=None,
         metadata={
             "name": "SistemaInformatico",
@@ -110,7 +110,7 @@ class LrfiltroRegFacturacionType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
         },
     )
-    ref_externa: Optional[str] = field(
+    ref_externa: None | str = field(
         default=None,
         metadata={
             "name": "RefExterna",
@@ -119,7 +119,7 @@ class LrfiltroRegFacturacionType:
             "max_length": 60,
         },
     )
-    clave_paginacion: Optional[IdfacturaExpedidaBctype] = field(
+    clave_paginacion: None | IdfacturaExpedidaBctype = field(
         default=None,
         metadata={
             "name": "ClavePaginacion",
@@ -129,27 +129,25 @@ class LrfiltroRegFacturacionType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ConsultaFactuSistemaFacturacionType:
-    cabecera: Optional[CabeceraConsultaSf] = field(
-        default=None,
+    cabecera: CabeceraConsultaSf = field(
         metadata={
             "name": "Cabecera",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    filtro_consulta: Optional[LrfiltroRegFacturacionType] = field(
-        default=None,
+    filtro_consulta: LrfiltroRegFacturacionType = field(
         metadata={
             "name": "FiltroConsulta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd",
             "required": True,
-        },
+        }
     )
-    datos_adicionales_respuesta: Optional[DatosAdicionalesRespuestaType] = field(
+    datos_adicionales_respuesta: None | DatosAdicionalesRespuestaType = field(
         default=None,
         metadata={
             "name": "DatosAdicionalesRespuesta",
@@ -159,7 +157,7 @@ class ConsultaFactuSistemaFacturacionType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ConsultaFactuSistemaFacturacion(ConsultaFactuSistemaFacturacionType):
     """
     Servicio de consulta Registros Facturacion.

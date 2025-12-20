@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Config xmlns="http://pypi.org/project/xsdata" version="26.1">
+  <Output maxLineLength="79" >
+    <Package>app.infrastructure.aeat.models</Package>
+  </Output>
+
+<!-- La siguiente configuración no funciona, por eso se aplica en gen_aeat_models.sh -->
+<!-- <Extensions>
+<Extension type="class" class="EstadoRegistroType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false" applyIfDerived="false"/>
+<Extension type="class" class="IndicadorPaginacionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="ResultadoConsultaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="CalificacionOperacionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="ClaveTipoFacturaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="ClaveTipoRectificativaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="CompletaSinDestinatarioType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="CuponType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="FinRequerimientoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="GeneradoPorType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="IdOperacionesTrascendenciaTributariaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="ImpuestoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="IncidenciaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="IndicadorRepresentanteType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="MacrodatoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="MostrarNombreRazonEmisorType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="MostrarSistemaInformaticoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="OperacionExentaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="PersonaFisicaJuridicaIdtypeType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="PrimerRegistroCadenaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="RechazoPrevioAnulacionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="RechazoPrevioType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="SiNoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="SimplificadaCualificadaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="SinRegistroPrevioType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="SubsanacionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TercerosOdestinatarioType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TipoHuellaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TipoOperacionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TipoPeriodoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="VersionType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="EstadoEnvioType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TipoAnomaliaType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="TipoEventoType" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="CountryType2" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+<Extension type="class" class="EstadoRegistroSftype" base="str,enum.Enum" import="enum.Enum" prepend="true" applyIfDerived="false"/>
+</Extensions> -->
+</Config>

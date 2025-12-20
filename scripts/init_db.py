@@ -74,8 +74,12 @@ async def init_database() -> None:
         print("=" * 70)
         print(
             f"""
+# 1. Establece clave de API
+export API_KEY='{key_plaintext}'
+
+# 2. Envía la factura usando la variable
 curl -X POST http://localhost:8000/v1/facturas \\
-  -H "Authorization: Bearer {key_plaintext}" \\
+  -H "Authorization: Bearer $API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{{
     "nif_emisor": "B12345678",

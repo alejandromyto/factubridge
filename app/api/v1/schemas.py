@@ -26,7 +26,7 @@ class RegistroEstado(BaseModel):
     serie: str
     numero: str
     fecha_expedicion: date
-    operacion: str
+    tipo_operacion: str
     estado: str
     url: Optional[str] = None
     qr: Optional[str] = None
@@ -54,7 +54,7 @@ class RegistroOut(BaseModel):
     serie: str
     numero: str
     fecha_expedicion: str
-    operacion: str
+    tipo_operacion: str
     estado: str
     importe_total: Optional[str]
     huella: str

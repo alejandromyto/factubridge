@@ -66,7 +66,7 @@ async def crear_factura(
     - UUID del registro
     - QR en base64
     - URL del QR
-    - Estado: "pendiente"
+    - Estado: "Pendiente"
     - Huella
 
     El procesamiento real (XML, firma?, envío AEAT) se hace en tarea en background.
@@ -194,7 +194,7 @@ async def crear_factura(
             fecha_operacion=factura_input.fecha_operacion,
             destinatario_nif=factura_input.nif,
             destinatario_nombre=factura_input.nombre,
-            operacion=TipoOperacionType.ALTA,
+            tipo_operacion=TipoOperacionType.ALTA,
             tipo_factura=factura_input.tipo_factura,
             factura_json=factura_input.model_dump(mode="json"),
             importe_total=importe_total,
@@ -208,7 +208,7 @@ async def crear_factura(
                 factura_anterior.fecha_expedicion if factura_anterior else None
             ),
             qr_data=qr_url,
-            estado=EstadoRegistroFacturacion.PENDIENTE.value,
+            estado=EstadoRegistroFacturacion.PENDIENTE,
         )
 
         db.add(registro)
@@ -221,7 +221,7 @@ async def crear_factura(
         )
         return FacturaResponse(
             uuid=registro.id,
-            estado="pendiente",
+            estado="Pendiente",
             url=qr_url,
             qr=qr_base64,
             huella=huella,

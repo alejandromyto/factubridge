@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from app.infrastructure.aeat.models.suministro_informacion import (
     CabeceraType,
@@ -13,7 +14,7 @@ from app.infrastructure.aeat.models.suministro_informacion import (
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd"
 
 
-class EstadoEnvioType(Enum):
+class EstadoEnvioType(str, Enum):
     """
     :cvar CORRECTO: Correcto
     :cvar PARCIALMENTE_CORRECTO: Parcialmente correcto. Ver detalle de
@@ -26,7 +27,7 @@ class EstadoEnvioType(Enum):
     INCORRECTO = "Incorrecto"
 
 
-class EstadoRegistroType(Enum):
+class EstadoRegistroType(str, Enum):
     """
     :cvar CORRECTO: Correcto
     :cvar ACEPTADO_CON_ERRORES: Aceptado con Errores. Ver detalle del
@@ -39,7 +40,7 @@ class EstadoRegistroType(Enum):
     INCORRECTO = "Incorrecto"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaBaseType:
     """
     :ivar csv: CSV asociado al envío generado por AEAT. Solo se genera
@@ -56,7 +57,7 @@ class RespuestaBaseType:
         incorrecto, el estado global es parcialmente correcto.
     """
 
-    csv: Optional[str] = field(
+    csv: None | str = field(
         default=None,
         metadata={
             "name": "CSV",
@@ -64,7 +65,7 @@ class RespuestaBaseType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
         },
     )
-    datos_presentacion: Optional[DatosPresentacionType] = field(
+    datos_presentacion: None | DatosPresentacionType = field(
         default=None,
         metadata={
             "name": "DatosPresentacion",
@@ -72,37 +73,34 @@ class RespuestaBaseType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
         },
     )
-    cabecera: Optional[CabeceraType] = field(
-        default=None,
+    cabecera: CabeceraType = field(
         metadata={
             "name": "Cabecera",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
-        },
+        }
     )
-    tiempo_espera_envio: Optional[str] = field(
-        default=None,
+    tiempo_espera_envio: str = field(
         metadata={
             "name": "TiempoEsperaEnvio",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
             "pattern": r"\d{0,4}",
-        },
+        }
     )
-    estado_envio: Optional[EstadoEnvioType] = field(
-        default=None,
+    estado_envio: EstadoEnvioType = field(
         metadata={
             "name": "EstadoEnvio",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaExpedidaType:
     """
     Respuesta a un envío.
@@ -120,25 +118,23 @@ class RespuestaExpedidaType:
         registrada en el sistema para este registro
     """
 
-    idfactura: Optional[IdfacturaExpedidaType] = field(
-        default=None,
+    idfactura: IdfacturaExpedidaType = field(
         metadata={
             "name": "IDFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
-        },
+        }
     )
-    operacion: Optional[OperacionType] = field(
-        default=None,
+    operacion: OperacionType = field(
         metadata={
             "name": "Operacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
-        },
+        }
     )
-    ref_externa: Optional[str] = field(
+    ref_externa: None | str = field(
         default=None,
         metadata={
             "name": "RefExterna",
@@ -147,16 +143,15 @@ class RespuestaExpedidaType:
             "max_length": 60,
         },
     )
-    estado_registro: Optional[EstadoRegistroType] = field(
-        default=None,
+    estado_registro: EstadoRegistroType = field(
         metadata={
             "name": "EstadoRegistro",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
             "required": True,
-        },
+        }
     )
-    codigo_error_registro: Optional[int] = field(
+    codigo_error_registro: None | int = field(
         default=None,
         metadata={
             "name": "CodigoErrorRegistro",
@@ -164,7 +159,7 @@ class RespuestaExpedidaType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd",
         },
     )
-    descripcion_error_registro: Optional[str] = field(
+    descripcion_error_registro: None | str = field(
         default=None,
         metadata={
             "name": "DescripcionErrorRegistro",
@@ -173,7 +168,7 @@ class RespuestaExpedidaType:
             "max_length": 1500,
         },
     )
-    registro_duplicado: Optional[RegistroDuplicadoType] = field(
+    registro_duplicado: None | RegistroDuplicadoType = field(
         default=None,
         metadata={
             "name": "RegistroDuplicado",
@@ -183,7 +178,7 @@ class RespuestaExpedidaType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaRegFactuSistemaFacturacionType(RespuestaBaseType):
     """
     Respuesta a un envío de registro de facturacion.
@@ -203,7 +198,7 @@ class RespuestaRegFactuSistemaFacturacionType(RespuestaBaseType):
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RespuestaRegFactuSistemaFacturacion(RespuestaRegFactuSistemaFacturacionType):
     class Meta:
         namespace = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd"

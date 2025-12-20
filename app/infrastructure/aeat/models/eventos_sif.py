@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 from xsdata.models.datatype import XmlDateTime
 
@@ -9,7 +10,7 @@ from app.infrastructure.aeat.models.xmldsig_core_schema import Signature
 __NAMESPACE__ = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd"
 
 
-class CountryType2(Enum):
+class CountryType2(str, Enum):
     AF = "AF"
     AL = "AL"
     DE = "DE"
@@ -257,7 +258,7 @@ class CountryType2(Enum):
     XN = "XN"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IdfacturaExpedidaHuellaType:
     """
     Datos de encadenamiento.
@@ -266,28 +267,25 @@ class IdfacturaExpedidaHuellaType:
     class Meta:
         name = "IDFacturaExpedidaHuellaType"
 
-    idemisor_factura: Optional[str] = field(
-        default=None,
+    idemisor_factura: str = field(
         metadata={
             "name": "IDEmisorFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "length": 9,
-        },
+        }
     )
-    num_serie_factura: Optional[str] = field(
-        default=None,
+    num_serie_factura: str = field(
         metadata={
             "name": "NumSerieFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 60,
-        },
+        }
     )
-    fecha_expedicion_factura: Optional[str] = field(
-        default=None,
+    fecha_expedicion_factura: str = field(
         metadata={
             "name": "FechaExpedicionFactura",
             "type": "Element",
@@ -295,51 +293,48 @@ class IdfacturaExpedidaHuellaType:
             "required": True,
             "length": 10,
             "pattern": r"\d{2,2}-\d{2,2}-\d{4,4}",
-        },
+        }
     )
-    huella: Optional[str] = field(
-        default=None,
+    huella: str = field(
         metadata={
             "name": "Huella",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 64,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IdfacturaExpedidaType:
     """
-    Datos de identificación de factura expedida para operaciones de consulta.
+    Datos de identificación de factura expedida para operaciones de
+    consulta.
     """
 
     class Meta:
         name = "IDFacturaExpedidaType"
 
-    idemisor_factura: Optional[str] = field(
-        default=None,
+    idemisor_factura: str = field(
         metadata={
             "name": "IDEmisorFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "length": 9,
-        },
+        }
     )
-    num_serie_factura: Optional[str] = field(
-        default=None,
+    num_serie_factura: str = field(
         metadata={
             "name": "NumSerieFactura",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 60,
-        },
+        }
     )
-    fecha_expedicion_factura: Optional[str] = field(
-        default=None,
+    fecha_expedicion_factura: str = field(
         metadata={
             "name": "FechaExpedicionFactura",
             "type": "Element",
@@ -347,11 +342,11 @@ class IdfacturaExpedidaType:
             "required": True,
             "length": 10,
             "pattern": r"\d{2,2}-\d{2,2}-\d{4,4}",
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PersonaFisicaJuridicaEstype:
     """
     Datos de una persona física o jurídica Española con un NIF asociado.
@@ -360,29 +355,27 @@ class PersonaFisicaJuridicaEstype:
     class Meta:
         name = "PersonaFisicaJuridicaESType"
 
-    nombre_razon: Optional[str] = field(
-        default=None,
+    nombre_razon: str = field(
         metadata={
             "name": "NombreRazon",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 120,
-        },
+        }
     )
-    nif: Optional[str] = field(
-        default=None,
+    nif: str = field(
         metadata={
             "name": "NIF",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "length": 9,
-        },
+        }
     )
 
 
-class PersonaFisicaJuridicaIdtypeType(Enum):
+class PersonaFisicaJuridicaIdtypeType(str, Enum):
     """
     :cvar VALUE_02: NIF-IVA
     :cvar VALUE_03: Pasaporte
@@ -400,12 +393,12 @@ class PersonaFisicaJuridicaIdtypeType(Enum):
     VALUE_07 = "07"
 
 
-class SiNoType(Enum):
+class SiNoType(str, Enum):
     S = "S"
     N = "N"
 
 
-class TercerosOdestinatarioType(Enum):
+class TercerosOdestinatarioType(str, Enum):
     """
     :cvar D: Destinatario
     :cvar T: Tercero
@@ -415,7 +408,7 @@ class TercerosOdestinatarioType(Enum):
     T = "T"
 
 
-class TipoAnomaliaType(Enum):
+class TipoAnomaliaType(str, Enum):
     """
     :cvar VALUE_01: Integridad-huella
     :cvar VALUE_02: Integridad-firma
@@ -461,7 +454,7 @@ class TipoAnomaliaType(Enum):
     VALUE_90 = "90"
 
 
-class TipoEventoType(Enum):
+class TipoEventoType(str, Enum):
     """
     :cvar VALUE_01: Inicio del funcionamiento del sistema informático
         como «NO VERI*FACTU».
@@ -499,7 +492,7 @@ class TipoEventoType(Enum):
     VALUE_90 = "90"
 
 
-class TipoHuellaType(Enum):
+class TipoHuellaType(str, Enum):
     """
     :cvar VALUE_01: SHA-256
     """
@@ -507,22 +500,21 @@ class TipoHuellaType(Enum):
     VALUE_01 = "01"
 
 
-class VersionType(Enum):
+class VersionType(str, Enum):
     VALUE_1_0 = "1.0"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DeteccionAnomaliasRegFacturacionType:
-    tipo_anomalia: Optional[TipoAnomaliaType] = field(
-        default=None,
+    tipo_anomalia: TipoAnomaliaType = field(
         metadata={
             "name": "TipoAnomalia",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    otros_datos_anomalia: Optional[str] = field(
+    otros_datos_anomalia: None | str = field(
         default=None,
         metadata={
             "name": "OtrosDatosAnomalia",
@@ -531,7 +523,7 @@ class DeteccionAnomaliasRegFacturacionType:
             "max_length": 100,
         },
     )
-    registro_facturacion_anomalo: Optional[IdfacturaExpedidaType] = field(
+    registro_facturacion_anomalo: None | IdfacturaExpedidaType = field(
         default=None,
         metadata={
             "name": "RegistroFacturacionAnomalo",
@@ -541,7 +533,7 @@ class DeteccionAnomaliasRegFacturacionType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ExportacionRegFacturacionPeriodoType:
     """
     :ivar fecha_hora_huso_inicio_periodo_export: Formato: YYYY-MM-
@@ -557,44 +549,39 @@ class ExportacionRegFacturacionPeriodoType:
     :ivar registros_facturacion_exportados_dejan_de_conservarse:
     """
 
-    fecha_hora_huso_inicio_periodo_export: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_inicio_periodo_export: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoInicioPeriodoExport",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    fecha_hora_huso_fin_periodo_export: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_fin_periodo_export: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoFinPeriodoExport",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    registro_facturacion_inicial_periodo: Optional[IdfacturaExpedidaHuellaType] = field(
-        default=None,
+    registro_facturacion_inicial_periodo: IdfacturaExpedidaHuellaType = field(
         metadata={
             "name": "RegistroFacturacionInicialPeriodo",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    registro_facturacion_final_periodo: Optional[IdfacturaExpedidaHuellaType] = field(
-        default=None,
+    registro_facturacion_final_periodo: IdfacturaExpedidaHuellaType = field(
         metadata={
             "name": "RegistroFacturacionFinalPeriodo",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    numero_de_registros_facturacion_alta_exportados: Optional[str] = field(
-        default=None,
+    numero_de_registros_facturacion_alta_exportados: str = field(
         metadata={
             "name": "NumeroDeRegistrosFacturacionAltaExportados",
             "type": "Element",
@@ -602,30 +589,27 @@ class ExportacionRegFacturacionPeriodoType:
             "required": True,
             "max_length": 9,
             "pattern": r"\d{1,9}",
-        },
+        }
     )
-    suma_cuota_total_alta: Optional[str] = field(
-        default=None,
+    suma_cuota_total_alta: str = field(
         metadata={
             "name": "SumaCuotaTotalAlta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
-        },
+        }
     )
-    suma_importe_total_alta: Optional[str] = field(
-        default=None,
+    suma_importe_total_alta: str = field(
         metadata={
             "name": "SumaImporteTotalAlta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
-        },
+        }
     )
-    numero_de_registros_facturacion_anulacion_exportados: Optional[str] = field(
-        default=None,
+    numero_de_registros_facturacion_anulacion_exportados: str = field(
         metadata={
             "name": "NumeroDeRegistrosFacturacionAnulacionExportados",
             "type": "Element",
@@ -633,31 +617,31 @@ class ExportacionRegFacturacionPeriodoType:
             "required": True,
             "max_length": 9,
             "pattern": r"\d{1,9}",
-        },
+        }
     )
-    registros_facturacion_exportados_dejan_de_conservarse: Optional[SiNoType] = field(
-        default=None,
+    registros_facturacion_exportados_dejan_de_conservarse: SiNoType = field(
         metadata={
             "name": "RegistrosFacturacionExportadosDejanDeConservarse",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class IdotroType:
     """
-    Identificador de persona Física o jurídica distinto del NIF (Código pais, Tipo
-    de Identificador, y hasta 15 caractéres) No se permite CodigoPais=ES e
-    IDType=01-NIFContraparte para ese caso, debe utilizarse NIF en lugar de IDOtro.
+    Identificador de persona Física o jurídica distinto del NIF (Código
+    pais, Tipo de Identificador, y hasta 15 caractéres) No se permite
+    CodigoPais=ES e IDType=01-NIFContraparte para ese caso, debe utilizarse
+    NIF en lugar de IDOtro.
     """
 
     class Meta:
         name = "IDOtroType"
 
-    codigo_pais: Optional[CountryType2] = field(
+    codigo_pais: None | CountryType2 = field(
         default=None,
         metadata={
             "name": "CodigoPais",
@@ -665,212 +649,186 @@ class IdotroType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    idtype: Optional[PersonaFisicaJuridicaIdtypeType] = field(
-        default=None,
+    idtype: PersonaFisicaJuridicaIdtypeType = field(
         metadata={
             "name": "IDType",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    id: Optional[str] = field(
-        default=None,
+    id: str = field(
         metadata={
             "name": "ID",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 20,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LanzamientoProcesoDeteccionAnomaliasRegEventoType:
-    realizado_proceso_sobre_integridad_huellas_reg_evento: Optional[SiNoType] = field(
-        default=None,
+    realizado_proceso_sobre_integridad_huellas_reg_evento: SiNoType = field(
         metadata={
             "name": "RealizadoProcesoSobreIntegridadHuellasRegEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
+        }
+    )
+    numero_de_registros_evento_procesados_sobre_integridad_huellas: None | str = field(
+        default=None,
+        metadata={
+            "name": "NumeroDeRegistrosEventoProcesadosSobreIntegridadHuellas",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            "max_length": 5,
+            "pattern": r"\d{1,5}",
         },
     )
-    numero_de_registros_evento_procesados_sobre_integridad_huellas: Optional[str] = (
-        field(
-            default=None,
-            metadata={
-                "name": "NumeroDeRegistrosEventoProcesadosSobreIntegridadHuellas",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "max_length": 5,
-                "pattern": r"\d{1,5}",
-            },
-        )
-    )
-    realizado_proceso_sobre_integridad_firmas_reg_evento: Optional[SiNoType] = field(
-        default=None,
+    realizado_proceso_sobre_integridad_firmas_reg_evento: SiNoType = field(
         metadata={
             "name": "RealizadoProcesoSobreIntegridadFirmasRegEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
+        }
+    )
+    numero_de_registros_evento_procesados_sobre_integridad_firmas: None | str = field(
+        default=None,
+        metadata={
+            "name": "NumeroDeRegistrosEventoProcesadosSobreIntegridadFirmas",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            "max_length": 5,
+            "pattern": r"\d{1,5}",
         },
     )
-    numero_de_registros_evento_procesados_sobre_integridad_firmas: Optional[str] = (
-        field(
-            default=None,
-            metadata={
-                "name": "NumeroDeRegistrosEventoProcesadosSobreIntegridadFirmas",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "max_length": 5,
-                "pattern": r"\d{1,5}",
-            },
-        )
-    )
-    realizado_proceso_sobre_trazabilidad_cadena_reg_evento: Optional[SiNoType] = field(
-        default=None,
+    realizado_proceso_sobre_trazabilidad_cadena_reg_evento: SiNoType = field(
         metadata={
             "name": "RealizadoProcesoSobreTrazabilidadCadenaRegEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
+        }
+    )
+    numero_de_registros_evento_procesados_sobre_trazabilidad_cadena: None | str = field(
+        default=None,
+        metadata={
+            "name": "NumeroDeRegistrosEventoProcesadosSobreTrazabilidadCadena",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            "max_length": 5,
+            "pattern": r"\d{1,5}",
         },
     )
-    numero_de_registros_evento_procesados_sobre_trazabilidad_cadena: Optional[str] = (
-        field(
-            default=None,
-            metadata={
-                "name": "NumeroDeRegistrosEventoProcesadosSobreTrazabilidadCadena",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "max_length": 5,
-                "pattern": r"\d{1,5}",
-            },
-        )
-    )
-    realizado_proceso_sobre_trazabilidad_fechas_reg_evento: Optional[SiNoType] = field(
-        default=None,
+    realizado_proceso_sobre_trazabilidad_fechas_reg_evento: SiNoType = field(
         metadata={
             "name": "RealizadoProcesoSobreTrazabilidadFechasRegEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
+        }
+    )
+    numero_de_registros_evento_procesados_sobre_trazabilidad_fechas: None | str = field(
+        default=None,
+        metadata={
+            "name": "NumeroDeRegistrosEventoProcesadosSobreTrazabilidadFechas",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            "max_length": 5,
+            "pattern": r"\d{1,5}",
         },
     )
-    numero_de_registros_evento_procesados_sobre_trazabilidad_fechas: Optional[str] = (
-        field(
-            default=None,
-            metadata={
-                "name": "NumeroDeRegistrosEventoProcesadosSobreTrazabilidadFechas",
-                "type": "Element",
-                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "max_length": 5,
-                "pattern": r"\d{1,5}",
-            },
-        )
-    )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LanzamientoProcesoDeteccionAnomaliasRegFacturacionType:
-    realizado_proceso_sobre_integridad_huellas_reg_facturacion: Optional[SiNoType] = (
+    realizado_proceso_sobre_integridad_huellas_reg_facturacion: SiNoType = field(
+        metadata={
+            "name": "RealizadoProcesoSobreIntegridadHuellasRegFacturacion",
+            "type": "Element",
+            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            "required": True,
+        }
+    )
+    numero_de_registros_facturacion_procesados_sobre_integridad_huellas: None | str = (
         field(
             default=None,
             metadata={
-                "name": "RealizadoProcesoSobreIntegridadHuellasRegFacturacion",
+                "name": "NumeroDeRegistrosFacturacionProcesadosSobreIntegridadHuellas",
                 "type": "Element",
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "required": True,
+                "max_length": 7,
+                "pattern": r"\d{1,7}",
             },
         )
     )
-    numero_de_registros_facturacion_procesados_sobre_integridad_huellas: Optional[
-        str
-    ] = field(
-        default=None,
+    realizado_proceso_sobre_integridad_firmas_reg_facturacion: SiNoType = field(
         metadata={
-            "name": "NumeroDeRegistrosFacturacionProcesadosSobreIntegridadHuellas",
+            "name": "RealizadoProcesoSobreIntegridadFirmasRegFacturacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-            "max_length": 7,
-            "pattern": r"\d{1,7}",
-        },
+            "required": True,
+        }
     )
-    realizado_proceso_sobre_integridad_firmas_reg_facturacion: Optional[SiNoType] = (
+    numero_de_registros_facturacion_procesados_sobre_integridad_firmas: None | str = (
         field(
             default=None,
             metadata={
-                "name": "RealizadoProcesoSobreIntegridadFirmasRegFacturacion",
+                "name": "NumeroDeRegistrosFacturacionProcesadosSobreIntegridadFirmas",
                 "type": "Element",
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "required": True,
+                "max_length": 7,
+                "pattern": r"\d{1,7}",
             },
         )
     )
-    numero_de_registros_facturacion_procesados_sobre_integridad_firmas: Optional[
-        str
-    ] = field(
-        default=None,
+    realizado_proceso_sobre_trazabilidad_cadena_reg_facturacion: SiNoType = field(
         metadata={
-            "name": "NumeroDeRegistrosFacturacionProcesadosSobreIntegridadFirmas",
+            "name": "RealizadoProcesoSobreTrazabilidadCadenaRegFacturacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-            "max_length": 7,
-            "pattern": r"\d{1,7}",
-        },
+            "required": True,
+        }
     )
-    realizado_proceso_sobre_trazabilidad_cadena_reg_facturacion: Optional[SiNoType] = (
+    numero_de_registros_facturacion_procesados_sobre_trazabilidad_cadena: None | str = (
         field(
             default=None,
             metadata={
-                "name": "RealizadoProcesoSobreTrazabilidadCadenaRegFacturacion",
+                "name": "NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadCadena",
                 "type": "Element",
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "required": True,
+                "max_length": 7,
+                "pattern": r"\d{1,7}",
             },
         )
     )
-    numero_de_registros_facturacion_procesados_sobre_trazabilidad_cadena: Optional[
-        str
-    ] = field(
-        default=None,
+    realizado_proceso_sobre_trazabilidad_fechas_reg_facturacion: SiNoType = field(
         metadata={
-            "name": "NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadCadena",
+            "name": "RealizadoProcesoSobreTrazabilidadFechasRegFacturacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-            "max_length": 7,
-            "pattern": r"\d{1,7}",
-        },
+            "required": True,
+        }
     )
-    realizado_proceso_sobre_trazabilidad_fechas_reg_facturacion: Optional[SiNoType] = (
+    numero_de_registros_facturacion_procesados_sobre_trazabilidad_fechas: None | str = (
         field(
             default=None,
             metadata={
-                "name": "RealizadoProcesoSobreTrazabilidadFechasRegFacturacion",
+                "name": "NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadFechas",
                 "type": "Element",
                 "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-                "required": True,
+                "max_length": 7,
+                "pattern": r"\d{1,7}",
             },
         )
-    )
-    numero_de_registros_facturacion_procesados_sobre_trazabilidad_fechas: Optional[
-        str
-    ] = field(
-        default=None,
-        metadata={
-            "name": "NumeroDeRegistrosFacturacionProcesadosSobreTrazabilidadFechas",
-            "type": "Element",
-            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-            "max_length": 7,
-            "pattern": r"\d{1,7}",
-        },
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegEventoAntType:
     """
     :ivar tipo_evento:
@@ -879,37 +837,34 @@ class RegEventoAntType:
     :ivar huella_evento:
     """
 
-    tipo_evento: Optional[TipoEventoType] = field(
-        default=None,
+    tipo_evento: TipoEventoType = field(
         metadata={
             "name": "TipoEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    fecha_hora_huso_gen_evento: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_gen_evento: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoGenEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    huella_evento: Optional[str] = field(
-        default=None,
+    huella_evento: str = field(
         metadata={
             "name": "HuellaEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 64,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegEventoType:
     """
     :ivar tipo_evento:
@@ -918,49 +873,44 @@ class RegEventoType:
     :ivar huella_evento:
     """
 
-    tipo_evento: Optional[TipoEventoType] = field(
-        default=None,
+    tipo_evento: TipoEventoType = field(
         metadata={
             "name": "TipoEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    fecha_hora_huso_evento: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_evento: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    huella_evento: Optional[str] = field(
-        default=None,
+    huella_evento: str = field(
         metadata={
             "name": "HuellaEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 64,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class TipoEventoAgrType:
-    tipo_evento: Optional[TipoEventoType] = field(
-        default=None,
+    tipo_evento: TipoEventoType = field(
         metadata={
             "name": "TipoEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    numero_de_eventos: Optional[str] = field(
-        default=None,
+    numero_de_eventos: str = field(
         metadata={
             "name": "NumeroDeEventos",
             "type": "Element",
@@ -968,22 +918,21 @@ class TipoEventoAgrType:
             "required": True,
             "max_length": 4,
             "pattern": r"\d{1,4}",
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DeteccionAnomaliasRegEventoType:
-    tipo_anomalia: Optional[TipoAnomaliaType] = field(
-        default=None,
+    tipo_anomalia: TipoAnomaliaType = field(
         metadata={
             "name": "TipoAnomalia",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    otros_datos_anomalia: Optional[str] = field(
+    otros_datos_anomalia: None | str = field(
         default=None,
         metadata={
             "name": "OtrosDatosAnomalia",
@@ -992,7 +941,7 @@ class DeteccionAnomaliasRegEventoType:
             "max_length": 100,
         },
     )
-    reg_evento_anomalo: Optional[RegEventoType] = field(
+    reg_evento_anomalo: None | RegEventoType = field(
         default=None,
         metadata={
             "name": "RegEventoAnomalo",
@@ -1002,9 +951,9 @@ class DeteccionAnomaliasRegEventoType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class EncadenamientoType:
-    primer_evento: Optional[str] = field(
+    primer_evento: None | str = field(
         default=None,
         metadata={
             "name": "PrimerEvento",
@@ -1013,7 +962,7 @@ class EncadenamientoType:
             "max_length": 1,
         },
     )
-    evento_anterior: Optional[RegEventoAntType] = field(
+    evento_anterior: None | RegEventoAntType = field(
         default=None,
         metadata={
             "name": "EventoAnterior",
@@ -1023,7 +972,7 @@ class EncadenamientoType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ExportacionRegEventoPeriodoType:
     """
     :ivar fecha_hora_huso_inicio_periodo_export: Formato: YYYY-MM-
@@ -1036,44 +985,39 @@ class ExportacionRegEventoPeriodoType:
     :ivar reg_evento_exportados_dejan_de_conservarse:
     """
 
-    fecha_hora_huso_inicio_periodo_export: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_inicio_periodo_export: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoInicioPeriodoExport",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    fecha_hora_huso_fin_periodo_export: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_fin_periodo_export: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoFinPeriodoExport",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    registro_evento_inicial_periodo: Optional[RegEventoType] = field(
-        default=None,
+    registro_evento_inicial_periodo: RegEventoType = field(
         metadata={
             "name": "RegistroEventoInicialPeriodo",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    registro_evento_final_periodo: Optional[RegEventoType] = field(
-        default=None,
+    registro_evento_final_periodo: RegEventoType = field(
         metadata={
             "name": "RegistroEventoFinalPeriodo",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    numero_de_reg_evento_exportados: Optional[str] = field(
-        default=None,
+    numero_de_reg_evento_exportados: str = field(
         metadata={
             "name": "NumeroDeRegEventoExportados",
             "type": "Element",
@@ -1081,36 +1025,34 @@ class ExportacionRegEventoPeriodoType:
             "required": True,
             "max_length": 7,
             "pattern": r"\d{1,7}",
-        },
+        }
     )
-    reg_evento_exportados_dejan_de_conservarse: Optional[SiNoType] = field(
-        default=None,
+    reg_evento_exportados_dejan_de_conservarse: SiNoType = field(
         metadata={
             "name": "RegEventoExportadosDejanDeConservarse",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class PersonaFisicaJuridicaType:
     """
     Datos de una persona física o jurídica Española o Extranjera.
     """
 
-    nombre_razon: Optional[str] = field(
-        default=None,
+    nombre_razon: str = field(
         metadata={
             "name": "NombreRazon",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 120,
-        },
+        }
     )
-    nif: Optional[str] = field(
+    nif: None | str = field(
         default=None,
         metadata={
             "name": "NIF",
@@ -1119,7 +1061,7 @@ class PersonaFisicaJuridicaType:
             "length": 9,
         },
     )
-    idotro: Optional[IdotroType] = field(
+    idotro: None | IdotroType = field(
         default=None,
         metadata={
             "name": "IDOtro",
@@ -1129,7 +1071,7 @@ class PersonaFisicaJuridicaType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ResumenEventosType:
     tipo_evento: list[TipoEventoAgrType] = field(
         default_factory=list,
@@ -1141,7 +1083,7 @@ class ResumenEventosType:
             "max_occurs": 20,
         },
     )
-    registro_facturacion_inicial_periodo: Optional[IdfacturaExpedidaHuellaType] = field(
+    registro_facturacion_inicial_periodo: None | IdfacturaExpedidaHuellaType = field(
         default=None,
         metadata={
             "name": "RegistroFacturacionInicialPeriodo",
@@ -1149,7 +1091,7 @@ class ResumenEventosType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    registro_facturacion_final_periodo: Optional[IdfacturaExpedidaHuellaType] = field(
+    registro_facturacion_final_periodo: None | IdfacturaExpedidaHuellaType = field(
         default=None,
         metadata={
             "name": "RegistroFacturacionFinalPeriodo",
@@ -1157,8 +1099,7 @@ class ResumenEventosType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    numero_de_registros_facturacion_alta_generados: Optional[str] = field(
-        default=None,
+    numero_de_registros_facturacion_alta_generados: str = field(
         metadata={
             "name": "NumeroDeRegistrosFacturacionAltaGenerados",
             "type": "Element",
@@ -1166,30 +1107,27 @@ class ResumenEventosType:
             "required": True,
             "max_length": 6,
             "pattern": r"\d{1,6}",
-        },
+        }
     )
-    suma_cuota_total_alta: Optional[str] = field(
-        default=None,
+    suma_cuota_total_alta: str = field(
         metadata={
             "name": "SumaCuotaTotalAlta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
-        },
+        }
     )
-    suma_importe_total_alta: Optional[str] = field(
-        default=None,
+    suma_importe_total_alta: str = field(
         metadata={
             "name": "SumaImporteTotalAlta",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "pattern": r"(\+|-)?\d{1,12}(\.\d{0,2})?",
-        },
+        }
     )
-    numero_de_registros_facturacion_anulacion_generados: Optional[str] = field(
-        default=None,
+    numero_de_registros_facturacion_anulacion_generados: str = field(
         metadata={
             "name": "NumeroDeRegistrosFacturacionAnulacionGenerados",
             "type": "Element",
@@ -1197,23 +1135,22 @@ class ResumenEventosType:
             "required": True,
             "max_length": 6,
             "pattern": r"\d{1,6}",
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class SistemaInformaticoType:
-    nombre_razon: Optional[str] = field(
-        default=None,
+    nombre_razon: str = field(
         metadata={
             "name": "NombreRazon",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 120,
-        },
+        }
     )
-    nif: Optional[str] = field(
+    nif: None | str = field(
         default=None,
         metadata={
             "name": "NIF",
@@ -1222,7 +1159,7 @@ class SistemaInformaticoType:
             "length": 9,
         },
     )
-    idotro: Optional[IdotroType] = field(
+    idotro: None | IdotroType = field(
         default=None,
         metadata={
             "name": "IDOtro",
@@ -1230,7 +1167,7 @@ class SistemaInformaticoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    nombre_sistema_informatico: Optional[str] = field(
+    nombre_sistema_informatico: None | str = field(
         default=None,
         metadata={
             "name": "NombreSistemaInformatico",
@@ -1239,37 +1176,34 @@ class SistemaInformaticoType:
             "max_length": 30,
         },
     )
-    id_sistema_informatico: Optional[str] = field(
-        default=None,
+    id_sistema_informatico: str = field(
         metadata={
             "name": "IdSistemaInformatico",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 2,
-        },
+        }
     )
-    version: Optional[str] = field(
-        default=None,
+    version: str = field(
         metadata={
             "name": "Version",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 50,
-        },
+        }
     )
-    numero_instalacion: Optional[str] = field(
-        default=None,
+    numero_instalacion: str = field(
         metadata={
             "name": "NumeroInstalacion",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 100,
-        },
+        }
     )
-    tipo_uso_posible_solo_verifactu: Optional[SiNoType] = field(
+    tipo_uso_posible_solo_verifactu: None | SiNoType = field(
         default=None,
         metadata={
             "name": "TipoUsoPosibleSoloVerifactu",
@@ -1277,7 +1211,7 @@ class SistemaInformaticoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    tipo_uso_posible_multi_ot: Optional[SiNoType] = field(
+    tipo_uso_posible_multi_ot: None | SiNoType = field(
         default=None,
         metadata={
             "name": "TipoUsoPosibleMultiOT",
@@ -1285,7 +1219,7 @@ class SistemaInformaticoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    indicador_multiples_ot: Optional[SiNoType] = field(
+    indicador_multiples_ot: None | SiNoType = field(
         default=None,
         metadata={
             "name": "IndicadorMultiplesOT",
@@ -1295,11 +1229,11 @@ class SistemaInformaticoType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DatosPropiosEventoType:
-    lanzamiento_proceso_deteccion_anomalias_reg_facturacion: Optional[
-        LanzamientoProcesoDeteccionAnomaliasRegFacturacionType
-    ] = field(
+    lanzamiento_proceso_deteccion_anomalias_reg_facturacion: (
+        None | LanzamientoProcesoDeteccionAnomaliasRegFacturacionType
+    ) = field(
         default=None,
         metadata={
             "name": "LanzamientoProcesoDeteccionAnomaliasRegFacturacion",
@@ -1307,19 +1241,19 @@ class DatosPropiosEventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    deteccion_anomalias_reg_facturacion: Optional[
-        DeteccionAnomaliasRegFacturacionType
-    ] = field(
-        default=None,
-        metadata={
-            "name": "DeteccionAnomaliasRegFacturacion",
-            "type": "Element",
-            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-        },
+    deteccion_anomalias_reg_facturacion: None | DeteccionAnomaliasRegFacturacionType = (
+        field(
+            default=None,
+            metadata={
+                "name": "DeteccionAnomaliasRegFacturacion",
+                "type": "Element",
+                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            },
+        )
     )
-    lanzamiento_proceso_deteccion_anomalias_reg_evento: Optional[
-        LanzamientoProcesoDeteccionAnomaliasRegEventoType
-    ] = field(
+    lanzamiento_proceso_deteccion_anomalias_reg_evento: (
+        None | LanzamientoProcesoDeteccionAnomaliasRegEventoType
+    ) = field(
         default=None,
         metadata={
             "name": "LanzamientoProcesoDeteccionAnomaliasRegEvento",
@@ -1327,7 +1261,7 @@ class DatosPropiosEventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    deteccion_anomalias_reg_evento: Optional[DeteccionAnomaliasRegEventoType] = field(
+    deteccion_anomalias_reg_evento: None | DeteccionAnomaliasRegEventoType = field(
         default=None,
         metadata={
             "name": "DeteccionAnomaliasRegEvento",
@@ -1335,17 +1269,17 @@ class DatosPropiosEventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    exportacion_reg_facturacion_periodo: Optional[
-        ExportacionRegFacturacionPeriodoType
-    ] = field(
-        default=None,
-        metadata={
-            "name": "ExportacionRegFacturacionPeriodo",
-            "type": "Element",
-            "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
-        },
+    exportacion_reg_facturacion_periodo: None | ExportacionRegFacturacionPeriodoType = (
+        field(
+            default=None,
+            metadata={
+                "name": "ExportacionRegFacturacionPeriodo",
+                "type": "Element",
+                "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
+            },
+        )
     )
-    exportacion_reg_evento_periodo: Optional[ExportacionRegEventoPeriodoType] = field(
+    exportacion_reg_evento_periodo: None | ExportacionRegEventoPeriodoType = field(
         default=None,
         metadata={
             "name": "ExportacionRegEventoPeriodo",
@@ -1353,7 +1287,7 @@ class DatosPropiosEventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    resumen_eventos: Optional[ResumenEventosType] = field(
+    resumen_eventos: None | ResumenEventosType = field(
         default=None,
         metadata={
             "name": "ResumenEventos",
@@ -1363,7 +1297,7 @@ class DatosPropiosEventoType:
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class EventoType:
     """
     :ivar sistema_informatico:
@@ -1381,25 +1315,23 @@ class EventoType:
     :ivar signature:
     """
 
-    sistema_informatico: Optional[SistemaInformaticoType] = field(
-        default=None,
+    sistema_informatico: SistemaInformaticoType = field(
         metadata={
             "name": "SistemaInformatico",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    obligado_emision: Optional[PersonaFisicaJuridicaEstype] = field(
-        default=None,
+    obligado_emision: PersonaFisicaJuridicaEstype = field(
         metadata={
             "name": "ObligadoEmision",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    emitida_por_tercero_odestinatario: Optional[TercerosOdestinatarioType] = field(
+    emitida_por_tercero_odestinatario: None | TercerosOdestinatarioType = field(
         default=None,
         metadata={
             "name": "EmitidaPorTerceroODestinatario",
@@ -1407,7 +1339,7 @@ class EventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    tercero_odestinatario: Optional[PersonaFisicaJuridicaType] = field(
+    tercero_odestinatario: None | PersonaFisicaJuridicaType = field(
         default=None,
         metadata={
             "name": "TerceroODestinatario",
@@ -1415,25 +1347,23 @@ class EventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    fecha_hora_huso_gen_evento: Optional[XmlDateTime] = field(
-        default=None,
+    fecha_hora_huso_gen_evento: XmlDateTime = field(
         metadata={
             "name": "FechaHoraHusoGenEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    tipo_evento: Optional[TipoEventoType] = field(
-        default=None,
+    tipo_evento: TipoEventoType = field(
         metadata={
             "name": "TipoEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    datos_propios_evento: Optional[DatosPropiosEventoType] = field(
+    datos_propios_evento: None | DatosPropiosEventoType = field(
         default=None,
         metadata={
             "name": "DatosPropiosEvento",
@@ -1441,7 +1371,7 @@ class EventoType:
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
         },
     )
-    otros_datos_evento: Optional[str] = field(
+    otros_datos_evento: None | str = field(
         default=None,
         metadata={
             "name": "OtrosDatosEvento",
@@ -1450,63 +1380,57 @@ class EventoType:
             "max_length": 100,
         },
     )
-    encadenamiento: Optional[EncadenamientoType] = field(
-        default=None,
+    encadenamiento: EncadenamientoType = field(
         metadata={
             "name": "Encadenamiento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    tipo_huella: Optional[TipoHuellaType] = field(
-        default=None,
+    tipo_huella: TipoHuellaType = field(
         metadata={
             "name": "TipoHuella",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
-        },
+        }
     )
-    huella_evento: Optional[str] = field(
-        default=None,
+    huella_evento: str = field(
         metadata={
             "name": "HuellaEvento",
             "type": "Element",
             "namespace": "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd",
             "required": True,
             "max_length": 64,
-        },
+        }
     )
-    signature: Optional[Signature] = field(
-        default=None,
+    signature: Signature = field(
         metadata={
             "name": "Signature",
             "type": "Element",
             "namespace": "http://www.w3.org/2000/09/xmldsig#",
             "required": True,
-        },
+        }
     )
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RegistroEvento:
     class Meta:
         namespace = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/EventosSIF.xsd"
 
-    idversion: Optional[VersionType] = field(
-        default=None,
+    idversion: VersionType = field(
         metadata={
             "name": "IDVersion",
             "type": "Element",
             "required": True,
-        },
+        }
     )
-    evento: Optional[EventoType] = field(
-        default=None,
+    evento: EventoType = field(
         metadata={
             "name": "Evento",
             "type": "Element",
             "required": True,
-        },
+        }
     )

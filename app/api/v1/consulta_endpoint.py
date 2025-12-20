@@ -72,7 +72,7 @@ async def consultar_estado_registro(
         serie=registro.serie,
         numero=registro.numero,
         fecha_expedicion=registro.fecha_expedicion,
-        operacion=registro.operacion,
+        tipo_operacion=registro.tipo_operacion,
         estado=estado_api,
         url=registro.qr_data,
         qr=None,  # No devolver QR en consultas (para ahorrar bandwidth)
@@ -151,7 +151,7 @@ async def listar_registros(
             serie=r.serie,
             numero=r.numero,
             fecha_expedicion=formatear_fecha(r.fecha_expedicion),
-            operacion=r.operacion,
+            tipo_operacion=r.tipo_operacion,
             estado=r.estado,
             importe_total=str(r.importe_total) if r.importe_total else None,
             huella=r.huella,

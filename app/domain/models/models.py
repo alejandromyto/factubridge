@@ -6,12 +6,12 @@ from decimal import Decimal
 from typing import List, Optional
 from uuid import UUID
 
+import sqlalchemy as sa
 from sqlalchemy import (
     DECIMAL,
     Boolean,
     Date,
     DateTime,
-    Enum,
     ForeignKey,
     Index,
     Integer,
@@ -23,6 +23,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+
+from app.infrastructure.aeat.models.respuesta_suministro import (
+    EstadoEnvioType,
+    EstadoRegistroType,
+)
+from app.infrastructure.aeat.models.suministro_informacion import (
+    ClaveTipoFacturaType,
+    ClaveTipoRectificativaType,
+    EstadoRegistroSftype,
+    TipoOperacionType,
+)
 
 
 class Base(DeclarativeBase):
@@ -198,16 +209,16 @@ class InstalacionSIF(Base):
 
 
 class EstadoRegistroFacturacion(str, enum.Enum):
-    PENDIENTE = "pendiente"  # registrado y persistido
-    ENCOLADO = "encolado"  # en espera de envío
-    CORRECTO = "correcto"
-    ACEPTADO_CON_ERRORES = "aceptado_con_errores"
-    INCORRECTO = "incorrecto"
-    DUPLICADO = "duplicado"
-    ANULADO = "anulado"
-    FACTURA_INEXISTENTE = "factura_inexistente"
-    NO_REGISTRADO = "no_registrado"
-    ERROR_SERVIDOR_AEAT = "error_servidor_aeat"
+    PENDIENTE = "Pendiente"  # registrado y persistido
+    ENCOLADO = "Encolado"  # en espera de envío
+    CORRECTO = EstadoRegistroType.CORRECTO.value
+    ACEPTADO_CON_ERRORES = EstadoRegistroType.ACEPTADO_CON_ERRORES.value
+    INCORRECTO = EstadoRegistroType.INCORRECTO.value
+    DUPLICADO = "Duplicado"
+    ANULADO = "Anulado"
+    FACTURA_INEXISTENTE = "FacturaInexistente"
+    NO_REGISTRADO = "NoRegistrado"
+    ERROR_SERVIDOR_AEAT = "ErrorServidorAeat"
 
 
 class EstadoLoteEnvio(str, enum.Enum):
@@ -236,11 +247,11 @@ class EstadoLoteEnvio(str, enum.Enum):
     # ESTADOS POST-ENVÍO (de AEAT, alineados con EstadoEnvioType del XSD)
     # ========================================================================
     # Todos los registros de facturación de la remisión tienen estado “Correcto”
-    CORRECTO = "Correcto"
+    CORRECTO = EstadoEnvioType.CORRECTO.value
     # Algunos registros de la remisión tienen estado “Incorrecto” o “AceptadoConErrores”
-    PARCIALMENTE_CORRECTO = "ParcialmenteCorrecto"
+    PARCIALMENTE_CORRECTO = EstadoEnvioType.PARCIALMENTE_CORRECTO.value
     # Todos los registros de la remisión tienen estado “Incorrecto”
-    INCORRECTO = "Incorrecto"
+    INCORRECTO = EstadoEnvioType.INCORRECTO.value
 
     # ========================================================================
     # ESTADOS DE ERROR (técnicos, no de negocio)
@@ -252,25 +263,10 @@ class EstadoLoteEnvio(str, enum.Enum):
 class EstadoOutboxEvent(str, enum.Enum):
     """Estados del evento en el outbox"""
 
-    PENDIENTE = "pendiente"  # Creado, esperando dispatch
-    ENCOLADO = "encolado"  # Enviado a cola Celery
-    PROCESADO = "procesado"  # Worker AEAT completó exitosamente
-    ERROR = "error"  # Falló después de reintentos
-
-
-class EstadoDuplicadoAEAT(str, enum.Enum):
-    """
-    Estados posibles de un registro duplicado en AEAT.
-
-    Según L21 de especificación Veri*factu:
-    - Correcta: Registro duplicado es correcto
-    - AceptadaConErrores: Registro duplicado tiene errores
-    - Anulada: Registro duplicado fue anulado
-    """
-
-    CORRECTA = "Correcta"
-    ACEPTADA_CON_ERRORES = "AceptadaConErrores"
-    ANULADA = "Anulada"
+    PENDIENTE = "Pendiente"  # Creado, esperando dispatch
+    ENCOLADO = "Encolado"  # Enviado a cola Celery
+    PROCESADO = "Procesado"  # Worker AEAT completó exitosamente
+    ERROR = "Error"  # Falló después de reintentos
 
 
 class RegistroFacturacion(Base):
@@ -306,10 +302,36 @@ class RegistroFacturacion(Base):
     destinatario_nif: Mapped[str | None] = mapped_column(String(20))
     destinatario_nombre: Mapped[str | None] = mapped_column(String(255))
 
-    # F1, F2, etc.
-    tipo_factura: Mapped[str] = mapped_column(String(10), nullable=False)
-    tipo_rectificativa: Mapped[str | None] = mapped_column(String(1))
-    operacion: Mapped[str] = mapped_column(String(255), nullable=False)
+    tipo_factura: Mapped[ClaveTipoFacturaType] = mapped_column(
+        sa.Enum(
+            ClaveTipoFacturaType,
+            name="chk_tipo_factura",
+            native_enum=True,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=False,
+        index=True,
+    )
+    tipo_rectificativa: Mapped[ClaveTipoRectificativaType | None] = mapped_column(
+        sa.Enum(
+            ClaveTipoRectificativaType,
+            name="chk_tipo_rectificativa",
+            native_enum=True,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=True,
+    )
+    tipo_operacion: Mapped[TipoOperacionType] = mapped_column(
+        sa.Enum(
+            TipoOperacionType,
+            name="chk_tipo_operacion",
+            native_enum=True,
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=False,
+        index=True,
+    )
+
     # <element name="DescripcionOperacion" type="sf:TextMax500Type"/>
     descripcion: Mapped[str | None] = mapped_column(String(500))
 
@@ -335,14 +357,14 @@ class RegistroFacturacion(Base):
 
     # ===== ESTADO Y CONTROL =====
     estado: Mapped[EstadoRegistroFacturacion] = mapped_column(
-        Enum(
+        sa.Enum(
             EstadoRegistroFacturacion,
-            name="chk_estado_registro_type",
-            create_type=True,
+            name="chk_estado_registro",
+            native_enum=True,
             values_callable=lambda enum_cls: [e.value for e in enum_cls],
         ),
         nullable=False,
-        server_default=EstadoRegistroFacturacion.PENDIENTE.value,
+        server_default=sa.text(f"'{EstadoRegistroFacturacion.PENDIENTE.value}'"),
         index=True,
     )
 
@@ -366,17 +388,17 @@ class RegistroFacturacion(Base):
         String(500), nullable=True
     )
 
-    # ✅ Información de duplicado (si el registro fue rechazado por duplicado)
+    # Información de duplicado (si el registro fue rechazado por duplicado)
     aeat_duplicado_id_peticion: Mapped[str | None] = mapped_column(
         String(20),
         nullable=True,
         comment="IdPeticion del registro ya existente en AEAT",
     )
-    aeat_duplicado_estado: Mapped[EstadoDuplicadoAEAT | None] = mapped_column(
-        Enum(
-            EstadoDuplicadoAEAT,
-            name="chk_estado_duplicado_aeat_type",
-            create_type=True,
+    aeat_duplicado_estado: Mapped[EstadoRegistroSftype | None] = mapped_column(
+        sa.Enum(
+            EstadoRegistroSftype,
+            name="chk_estado_duplicado_aeat",
+            native_enum=True,
             values_callable=lambda enum_cls: [e.value for e in enum_cls],
             comment="Estado del duplicado: Correcta, AceptadaConErrores, Anulada",
         ),
@@ -468,14 +490,14 @@ class LoteEnvio(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     estado: Mapped[EstadoLoteEnvio] = mapped_column(
-        Enum(
+        sa.Enum(
             EstadoLoteEnvio,
-            name="chk_estado_lote_envio_type",
-            create_type=True,
+            name="chk_estado_lote_envio",
+            native_enum=True,
             values_callable=lambda enum_cls: [e.value for e in enum_cls],
         ),
         nullable=False,
-        server_default=EstadoLoteEnvio.CREADO,
+        server_default=sa.text(f"'{EstadoLoteEnvio.CREADO.value}'"),
         index=True,
     )
     csv_aeat: Mapped[str | None] = mapped_column(
@@ -548,14 +570,14 @@ class OutboxEvent(Base):
 
     # Estado del evento
     estado: Mapped[EstadoOutboxEvent] = mapped_column(
-        Enum(
+        sa.Enum(
             EstadoOutboxEvent,
-            name="chk_estado_outbox_event_type",
-            create_type=True,
+            name="chk_estado_outbox_event",
+            native_enum=True,
             values_callable=lambda enum_cls: [e.value for e in enum_cls],
         ),
         nullable=False,
-        server_default=EstadoOutboxEvent.PENDIENTE,
+        server_default=sa.text(f"'{EstadoOutboxEvent.PENDIENTE.value}'"),
         index=True,  # Índice crítico para SELECT WHERE estado='pendiente'
     )
 
@@ -600,7 +622,7 @@ class OutboxEvent(Base):
             "idx_outbox_polling_fifo",
             "created_at",  # 1. Primer criterio de ordenamiento
             "id",  # 2. Segundo criterio (desempate determinista)
-            postgresql_where=text("estado = 'pendiente'"),  # Filtro parcial
+            postgresql_where=text(f"estado = '{EstadoOutboxEvent.PENDIENTE.value}'"),
         ),
         # Índice para ver historial por instalación (útil para UI/Debug)
         Index("idx_outbox_instalacion_estado", "instalacion_sif_id", "estado"),
